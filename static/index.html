@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pronóstico de fructificación — piloto AEMET</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+    #map { height: 100%; width: 100%; }
+    #info { position: absolute; top: 10px; right: 10px; z-index: 1000; background: #fff;
+            padding: 10px 12px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+            max-width: 280px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="info">Cargando estaciones de Castilla y León…</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([41.65, -4.0], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const info = document.getElementById('info');
+    // Provincias de Castilla y León (filtro para el piloto)
+    const provincias = 'BURGOS,SORIA,PALENCIA,VALLADOLID,SEGOVIA,AVILA,ZAMORA,LEON,SALAMANCA';
+
+    async function cargarEstaciones() {
+      try {
+        const r = await fetch(`/api/estaciones?provincias=${provincias}`);
+        if (!r.ok) throw new Error((await r.json()).detail || 'Error al cargar estaciones');
+        const { total, estaciones } = await r.json();
+        estaciones.forEach(e => {
+          L.circleMarker([e.lat, e.lon], { radius: 5 })
+            .bindPopup(`<b>${e.nombre}</b><br>${e.provincia} · ${e.altitud ?? '?'} m<br>Indicativo: ${e.indicativo}`)
+            .addTo(map);
+        });
+        info.textContent = `${total} estaciones cargadas. Pulsa una para ver su código.`;
+      } catch (err) {
+        info.textContent = 'Error: ' + err.message;
+      }
+    }
+    cargarEstaciones();
+  </script>
+</body>
+</html>
