@@ -99,6 +99,8 @@ async def stations() -> list[dict]:
             "altitud": _to_float(s.get("altitud")),
             "lat": lat,
             "lon": lon,
+            "latitud_raw": s.get("latitud"),   # diagnóstico: valor original de AEMET
+            "longitud_raw": s.get("longitud"),  # diagnóstico: valor original de AEMET
         })
     return out
 
