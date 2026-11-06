@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import aemet
+from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -30,6 +31,22 @@ async def estaciones(provincias: str = Query("", description="Provincias separad
         filtro = {p.strip().upper() for p in provincias.split(",") if p.strip()}
         todas = [s for s in todas if (s.get("provincia") or "").upper() in filtro]
     return {"total": len(todas), "estaciones": todas}
+
+
+@app.get("/api/comparar")
+async def comparar(
+    provincias: str = Query("BURGOS", description="Provincias separadas por comas"),
+    dias: int = Query(21, ge=3, le=60, description="Días hacia atrás desde ayer"),
+):
+    """Resumen por estación (lluvia, heladas, sol) en los últimos N días, ordenado por lluvia."""
+    filtro = {p.strip().upper() for p in provincias.split(",") if p.strip()}
+    try:
+        resultados = await comparacion.comparar(filtro, dias)
+    except aemet.AemetError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    fin = date.today() - timedelta(days=1)
+    inicio = fin - timedelta(days=dias - 1)
+    return {"desde": inicio.isoformat(), "hasta": fin.isoformat(), "total": len(resultados), "estaciones": resultados}
 
 
 @app.get("/api/diarios/{indicativo}")
