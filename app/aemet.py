@@ -5,6 +5,7 @@ La API funciona en dos pasos: la petición devuelve una URL en el campo
 Los nombres de endpoints y campos deben verificarse contra la documentación
 oficial de AEMET OpenData antes de dar el piloto por bueno.
 """
+import json
 import os
 from datetime import date, timedelta
 
@@ -37,7 +38,12 @@ async def _fetch_datos(client: httpx.AsyncClient, url: str):
         raise AemetError(meta.get("descripcion", "Error devuelto por AEMET"))
     r2 = await client.get(meta["datos"])
     r2.raise_for_status()
-    return r2.json()
+    # AEMET sirve los datos en ISO-8859-1 (acentos), no en UTF-8
+    try:
+        text = r2.content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = r2.content.decode("latin-1")
+    return json.loads(text)
 
 
 def _to_float(value):
