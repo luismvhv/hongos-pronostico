@@ -71,10 +71,8 @@ def _dms_to_decimal(value: str | None):
     hemi = s[-1].upper()
     digits = s[:-1]
     try:
-        if hemi in "NS":
-            deg, minutes, seconds = int(digits[:2]), int(digits[2:4]), int(digits[4:6])
-        else:  # E / W: longitud con 3 dígitos de grados
-            deg, minutes, seconds = int(digits[:3]), int(digits[3:5]), int(digits[5:7])
+        # AEMET usa DDMMSS tanto para latitud como para longitud (p. ej. 033713W = 3°37'13" W)
+        deg, minutes, seconds = int(digits[:2]), int(digits[2:4]), int(digits[4:6])
     except ValueError:
         return None
     dec = deg + minutes / 60 + seconds / 3600
@@ -99,8 +97,6 @@ async def stations() -> list[dict]:
             "altitud": _to_float(s.get("altitud")),
             "lat": lat,
             "lon": lon,
-            "latitud_raw": s.get("latitud"),   # diagnóstico: valor original de AEMET
-            "longitud_raw": s.get("longitud"),  # diagnóstico: valor original de AEMET
         })
     return out
 
