@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE = "https://opendata.aemet.es/opendataapi"
+BASE = "https://opendata.aemet.es/opendata"
 CHUNK_DAYS = 30  # tamaño de cada petición de datos diarios (ajustable)
 
 
