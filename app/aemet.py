@@ -31,24 +31,48 @@ def _api_key() -> str:
     return key
 
 
+class SinDatos(AemetError):
+    """AEMET responde estado 404: no hay datos para esa estación y periodo."""
+
+
+async def _get_reintentos(client: httpx.AsyncClient, url: str, headers: dict | None = None) -> httpx.Response:
+    """GET con espera ante 429 (límite por minuto de AEMET) y ante errores 5xx/red transitorios.
+
+    Comprobado en Render (nov-2026): ~40 peticiones seguidas disparan 429, y las URL de
+    `datos` devuelven 500 de vez en cuando; reintentando al cabo de unos segundos funcionan.
+    """
+    ultimo = None
+    for intento in range(6):
+        try:
+            r = await client.get(url, headers=headers)
+        except httpx.TransportError as e:
+            ultimo = e
+            await asyncio.sleep(3 * (intento + 1))
+            continue
+        limite = r.status_code == 429
+        if not limite and r.headers.get("content-type", "").startswith("application/json"):
+            try:
+                limite = r.json().get("estado") == 429
+            except ValueError:
+                pass
+        if limite or r.status_code >= 500:
+            ultimo = AemetError(f"AEMET respondió {r.status_code}")
+            await asyncio.sleep(min(60, 10 * (intento + 1)))
+            continue
+        r.raise_for_status()
+        return r
+    raise AemetError(f"AEMET no responde tras varios reintentos: {ultimo}")
+
+
 async def _fetch_datos(client: httpx.AsyncClient, url: str):
     """Pide una URL de AEMET y sigue el campo 'datos' hasta obtener el contenido."""
-    for intento in range(3):
-        r = await client.get(url, headers={"api_key": _api_key(), "Accept": "application/json"})
-        # 429 = límite de peticiones por minuto de AEMET: esperar y reintentar
-        if r.status_code == 429 or (r.headers.get("content-type", "").startswith("application/json")
-                                    and r.json().get("estado") == 429):
-            await asyncio.sleep(5 * (intento + 1))
-            continue
-        break
-    r.raise_for_status()
+    r = await _get_reintentos(client, url, {"api_key": _api_key(), "Accept": "application/json"})
     meta = r.json()
     if meta.get("estado") == 404:
-        raise AemetError("Sin datos de AEMET para esa estación y periodo")
+        raise SinDatos("Sin datos de AEMET para esa estación y periodo")
     if meta.get("estado") != 200:
         raise AemetError(meta.get("descripcion", "Error devuelto por AEMET"))
-    r2 = await client.get(meta["datos"])
-    r2.raise_for_status()
+    r2 = await _get_reintentos(client, meta["datos"])
     # AEMET sirve los datos en ISO-8859-1 (acentos), no en UTF-8
     try:
         text = r2.content.decode("utf-8")
@@ -119,9 +143,23 @@ async def stations() -> list[dict]:
     return out
 
 
+_DIARIOS: dict = {}
+DIARIOS_TTL = 6 * 3600  # caché por estación y periodo: evita repetir peticiones y el 429
+
+
 async def daily_values(station_id: str, start: date, end: date) -> list[dict]:
-    """Valores diarios de una estación entre dos fechas, normalizados a números."""
+    """Valores diarios de una estación entre dos fechas, normalizados a números.
+
+    Un bloque sin datos (estado 404) no invalida los demás: la estación puede tener huecos.
+    Solo si ningún bloque tiene datos se lanza SinDatos.
+    """
+    clave = (station_id, start.isoformat(), end.isoformat())
+    hit = _DIARIOS.get(clave)
+    if hit and time.time() - hit[0] < DIARIOS_TTL:
+        return hit[1]
     rows: list[dict] = []
+    sin_datos = 0
+    bloques = 0
     async with httpx.AsyncClient(timeout=60) as client:
         cursor = start
         while cursor <= end:
@@ -132,7 +170,12 @@ async def daily_values(station_id: str, start: date, end: date) -> list[dict]:
                 f"fechafin/{chunk_end.isoformat()}T00:00:00UTC/"
                 f"estacion/{station_id}"
             )
-            raw = await _fetch_datos(client, url)
+            bloques += 1
+            try:
+                raw = await _fetch_datos(client, url)
+            except SinDatos:
+                raw = []
+                sin_datos += 1
             for d in raw:
                 rows.append({
                     "fecha": d.get("fecha"),
@@ -144,4 +187,7 @@ async def daily_values(station_id: str, start: date, end: date) -> list[dict]:
                     "sol": _to_float(d.get("sol")) if "sol" in d else None,
                 })
             cursor = chunk_end + timedelta(days=1)
+    if sin_datos == bloques:
+        raise SinDatos("Sin datos de AEMET para esa estación y periodo")
+    _DIARIOS[clave] = (time.time(), rows)
     return rows

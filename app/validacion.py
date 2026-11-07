@@ -23,7 +23,7 @@ UMBRAL_ACIERTO = 0.75
 RATIO_MIN, RATIO_MAX = 0.7, 1.4
 MIN_DIAS = 30
 CACHE_TTL = 12 * 3600
-MAX_CONCURRENCIA = 3
+MAX_CONCURRENCIA = 2
 
 _cache: dict = {}
 
@@ -133,5 +133,7 @@ async def validar(provincias: set[str], dias: int = 90) -> dict:
         "estaciones": filas,
         "fuente_modelo": openmeteo.ATRIBUCION,
     }
-    _cache[clave] = (time.time(), res)
+    # Solo se cachea si no hubo fallos transitorios (un "sin datos" real sí se cachea)
+    if all(f["error"] in (None, "Sin datos de AEMET para esa estación y periodo") for f in filas):
+        _cache[clave] = (time.time(), res)
     return res
