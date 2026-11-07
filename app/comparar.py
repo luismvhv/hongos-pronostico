@@ -13,15 +13,27 @@ from app import aemet
 MAX_CONCURRENCIA = 3  # peticiones simultáneas a AEMET (evita saturarla)
 
 
-def resumir(valores: list[dict]) -> dict:
-    """Resume una lista de valores diarios de una estación."""
+def resumir(valores: list[dict], dias_esperados: int | None = None) -> dict:
+    """Resume una lista de valores diarios de una estación.
+
+    Incluye la cobertura: AEMET publica con retraso y algunas estaciones tienen
+    huecos, así que una suma de lluvia sin cobertura puede engañar.
+    """
     dias = [v for v in valores if v.get("fecha")]
     prec = [v["prec"] for v in dias if v.get("prec") is not None]
     tmin = [v["tmin"] for v in dias if v.get("tmin") is not None]
     tmed = [v["tmed"] for v in dias if v.get("tmed") is not None]
     sol = [v["sol"] for v in dias if v.get("sol") is not None]
+    fechas = sorted(v["fecha"] for v in dias)
+    esperados = dias_esperados or len(dias)
+    cobertura_prec = round(len(prec) / esperados, 2) if esperados else 0.0
     return {
         "dias": len(dias),
+        "dias_esperados": esperados,
+        "dias_con_prec": len(prec),
+        "cobertura_prec": cobertura_prec,
+        "ultimo_dato": fechas[-1] if fechas else None,
+        "aviso": None if cobertura_prec >= 0.8 else "Cobertura de precipitación incompleta: la lluvia acumulada puede estar subestimada",
         "lluvia_mm": round(sum(prec), 1) if prec else None,
         "dias_con_lluvia": sum(1 for p in prec if p > 0),
         "heladas": sum(1 for t in tmin if t <= 0),
@@ -43,7 +55,7 @@ async def comparar(provincias: set[str], dias: int) -> list[dict]:
         async with semaforo:
             try:
                 valores = await aemet.daily_values(est["indicativo"], inicio, fin)
-                return {**est, **resumir(valores), "error": None}
+                return {**est, **resumir(valores, dias), "error": None}
             except Exception as e:  # una estación fallida no tumba la comparación
                 return {**est, "error": str(e)}
 

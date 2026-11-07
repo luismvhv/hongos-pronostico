@@ -5,8 +5,10 @@ La API funciona en dos pasos: la petición devuelve una URL en el campo
 Los nombres de endpoints y campos deben verificarse contra la documentación
 oficial de AEMET OpenData antes de dar el piloto por bueno.
 """
+import asyncio
 import json
 import os
+import time
 from datetime import date, timedelta
 
 import httpx
@@ -31,9 +33,18 @@ def _api_key() -> str:
 
 async def _fetch_datos(client: httpx.AsyncClient, url: str):
     """Pide una URL de AEMET y sigue el campo 'datos' hasta obtener el contenido."""
-    r = await client.get(url, headers={"api_key": _api_key(), "Accept": "application/json"})
+    for intento in range(3):
+        r = await client.get(url, headers={"api_key": _api_key(), "Accept": "application/json"})
+        # 429 = límite de peticiones por minuto de AEMET: esperar y reintentar
+        if r.status_code == 429 or (r.headers.get("content-type", "").startswith("application/json")
+                                    and r.json().get("estado") == 429):
+            await asyncio.sleep(5 * (intento + 1))
+            continue
+        break
     r.raise_for_status()
     meta = r.json()
+    if meta.get("estado") == 404:
+        raise AemetError("Sin datos de AEMET para esa estación y periodo")
     if meta.get("estado") != 200:
         raise AemetError(meta.get("descripcion", "Error devuelto por AEMET"))
     r2 = await client.get(meta["datos"])
@@ -79,8 +90,14 @@ def _dms_to_decimal(value: str | None):
     return -dec if hemi in "SW" else dec
 
 
+_INVENTARIO: dict = {"t": 0.0, "datos": None}
+INVENTARIO_TTL = 24 * 3600  # el inventario casi no cambia: se cachea un día en memoria
+
+
 async def stations() -> list[dict]:
     """Inventario de estaciones climatológicas con coordenadas en grados decimales."""
+    if _INVENTARIO["datos"] is not None and time.time() - _INVENTARIO["t"] < INVENTARIO_TTL:
+        return _INVENTARIO["datos"]
     url = f"{BASE}/api/valores/climatologicos/inventarioestaciones/todasestaciones"
     async with httpx.AsyncClient(timeout=60) as client:
         raw = await _fetch_datos(client, url)
@@ -98,6 +115,7 @@ async def stations() -> list[dict]:
             "lat": lat,
             "lon": lon,
         })
+    _INVENTARIO.update(t=time.time(), datos=out)
     return out
 
 
