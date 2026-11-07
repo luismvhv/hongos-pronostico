@@ -157,6 +157,42 @@ heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una ca
   Italian Journal of Mycology 2023 (Salerni, Paoli, Perini).
 - Pendiente: revisión bibliográfica más rigurosa para fijar pesos y retardos por especie.
 
+## 5b. Revisión bibliográfica para el modelo v0 (nov-2026) y diseño (`app/modelo.py`)
+
+Búsqueda web (sin acceso a texto completo: los hallazgos vienen de resúmenes; verificar en Fase 3).
+
+| Fuente | Qué aporta | Uso en v0 |
+|---|---|---|
+| Alday et al. 2017, *Fungal Ecology* (doi 10.1016/j.funeco.2017.01.004), "Record breaking mushroom yields in Spain" | Picos de 2006 y 2014 (+270 %, +210 %) disparados por la **lluvia de finales de verano–principio de otoño**, más que por la temperatura | La lluvia es el factor principal |
+| Alday et al. 2017, *Sci. Rep.* (PMC5382911), gradiente altitudinal *P. sylvestris* | La lluvia de finales de verano–otoño explica la variación; el año pesa más que el sitio | Ídem |
+| Taye et al. 2016, *Fungal Ecology* 23:30-41 (doi 10.1016/j.funeco.2016.05.008), *P. pinaster*, Centro de España, 17 años | Ocurrencia de *Lactarius* gr. *deliciosus* explicada sobre todo por la **lluvia otoñal**; suelo ácido +, suelo arenoso −, rodales viejos − | Lluvia; suelo para Fase 2 |
+| Karavani et al. 2018, *Agric. For. Meteorol.* 248:432-440, *P. pinaster*, NE España | Producción ligada a tiempo y **humedad del suelo del mismo mes**, salvo la **lluvia, con 1 mes de retraso** | Ventanas de lluvia con retardo; factor suelo |
+| Ágreda et al. 2015, *Glob. Change Biol.* 21:3499-3510 (doi 10.1111/gcb.12960), 15 años | Los modelos de **balance hídrico** (lluvia − ET) predicen distinto que los de lluvia sola; la demanda evaporativa reduce la producción | Factor balance P − ET0 |
+| Martínez de Aragón et al. 2007, *For. Ecol. Manage.* (doi 10.1016/j.foreco.2007.06.040), Solsonès | Según un trabajo que lo cita: P − ET de **septiembre-octubre** explica la producción anual | Ídem (cita de segunda mano) |
+| Pinar Grande (Soria), serie de 29 años (tesis VCU 2025; y trabajo 1995-2013) | Lluvia jul-sep → temporadas más largas y más producción; **calor** → temporada micorrícica más corta; descenso de *B. edulis* y *Lactarius* con menos lluvia jul-sep | Penalizar calor/sequía |
+| bioRxiv 10.64898/2025.12.12.693895 (preprint, **sin revisión por pares**), *B. edulis*, hayedos de Europa central, 10 años | Máximo con **T media ≈ 13 °C en 20 días**; producción crece con la **lluvia acumulada en 26 días** | Perfil térmico y ventana de *B. edulis* |
+| Salerni, Paoli, Perini 2023, *Ital. J. Mycol.* | **Subidas bruscas de tmax** inhiben *B. edulis* (21 días tras el evento) | Factor "golpe de calor" |
+| Partes de Micocyl (2021, oct-2024) | Níscalo: lluvia > 50 l/m² como disparador; máximas 12-20 °C y mínimas > 5 °C; *P. eryngii* citado en Burgos y Soria en oct-2024 | Objetivo de lluvia y rango del níscalo |
+
+**Sin respaldo cuantitativo encontrado** (perfiles SUPUESTOS, marcados así en el código):
+*Amanita caesarea* (solo "termófila"; análogo *A. ponderosa*, Daza et al. 2007: lluvia de final de
+verano), *Pleurotus eryngii* (divulgación: 2-3 semanas tras lluvias), *Tricholoma terreum* y
+*Cantharellus lutescens* (tardías, tolerantes al frío), *Marasmius oreades* (pradera, rápida).
+Tampoco hay umbral publicado de helada para el níscalo.
+
+**Diseño v0** — índice = 100 · fenología · agua · temperatura · heladas [· calor (*B. edulis*)]:
+- Multiplicativo: cada factor puede limitar (si no hay agua, no hay setas aunque la T sea ideal).
+- Agua = 0,5·lluvia (logística con umbral sobre la ventana con retardo; 0,9 al llegar al objetivo)
+  + 0,25·humedad del suelo 0-28 cm (7 días) + 0,25·balance P − ET0 (30 días). **Pesos supuestos**.
+- Temperatura: trapecio sobre la T media de 14-20 días por especie.
+- Heladas: penalización por día con tmin ≤ 0 / ≤ −3 °C en 10 días, según tolerancia de la especie.
+- Fenología: peso mensual orientativo para Burgos (supuesto a partir de partes regionales).
+- Es un **índice de favorabilidad climática, no una probabilidad calibrada**.
+- Contraste rápido (Burgos Aeropuerto): 28-oct-2024 → níscalo 100 (otoño muy lluvioso, 136 mm/30 d);
+  7-nov-2026 → níscalo 19 (11,6 mm/30 d, balance −53 mm). Coherente, pero **no es validación**:
+  falta calibrar con partes reales (Fase 3).
+- Endpoints: `GET /api/especies`, `GET /api/favorabilidad?lat=&lon=` (punto suelto, sin AEMET).
+
 ## 6. Hoja de ruta acordada (por fases)
 
 ### Fase 1 — Piloto Burgos (EN CURSO)
@@ -173,7 +209,7 @@ heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una ca
      ("el modelo diverge de AEMET en esta zona; la estimación es menos fiable").
    - Ponderación: cerca de una estación AEMET pesa más el dato real; lejos, Open-Meteo
      con menor confianza. Umbrales provisionales: ajustar con datos reales.
-5. ⏭️ **Modelo de favorabilidad v0** por especie (reglas de la literatura): lluvia acumulada en
+5. ✅ **Modelo de favorabilidad v0** (ver §5b) por especie (reglas de la literatura): lluvia acumulada en
    ventanas (7/14/21/30 días), días sin helada, tmin/tmax en rango, humedad del suelo, sol.
    Salida 0-100 %.
 6. ⏭️ **Mapa de calor de Burgos**: malla de puntos sobre la provincia, puntuación por punto,

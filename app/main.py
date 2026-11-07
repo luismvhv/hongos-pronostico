@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app import aemet
 from app import openmeteo
 from app import validacion
+from app import modelo
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -98,3 +99,26 @@ async def validacion_endpoint(
     if not series:
         res = {**res, "estaciones": [{k: v for k, v in e.items() if k != "aemet"} for e in res["estaciones"]]}
     return res
+
+
+@app.get("/api/especies")
+async def especies():
+    """Catálogo de especies del modelo v0, con las fuentes de cada perfil."""
+    return {"especies": modelo.catalogo()}
+
+
+@app.get("/api/favorabilidad")
+async def favorabilidad(
+    lat: float = Query(..., ge=35, le=44.5),
+    lon: float = Query(..., ge=-10, le=5),
+    elevacion: float | None = Query(None),
+):
+    """Índice de favorabilidad v0 (0-100) por especie en un punto, solo con Open-Meteo."""
+    fin = date.today() - timedelta(days=1)
+    inicio = fin - timedelta(days=44)
+    try:
+        res = await openmeteo.diarios([(lat, lon, elevacion)], inicio, fin)
+    except openmeteo.OpenMeteoError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"lat": lat, "lon": lon, "hasta": fin.isoformat(), "fuente": openmeteo.ATRIBUCION,
+            **modelo.puntuar_todas(res[0]["valores"])}
