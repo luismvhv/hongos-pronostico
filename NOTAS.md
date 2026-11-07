@@ -62,7 +62,8 @@ requirements.txt  .env.example  .gitignore  NOTAS.md
 | `GET /` | ✅ funciona | Mapa Leaflet con las estaciones de CyL |
 | `GET /api/estaciones?provincias=BURGOS,SORIA` | ✅ verificado | Inventario AEMET con lat/lon decimales |
 | `GET /api/diarios/{indicativo}?dias=30` | ✅ verificado | Valores diarios: tmed, tmin, tmax, prec, hr, sol |
-| `GET /api/comparar?provincias=BURGOS&dias=21` | ⚠️ subido, **sin verificar** | Por estación: lluvia acumulada, días con lluvia, heladas (tmin ≤ 0), tmed media, sol medio; ordenado por lluvia |
+| `GET /api/comparar?provincias=BURGOS&dias=21` | ✅ verificado en Render (nov-2026) | Por estación: lluvia acumulada, días con lluvia, heladas (tmin ≤ 0), tmed media, sol medio, **cobertura** (días con dato, último dato, aviso si < 80 %); ordenado por lluvia |
+| `GET /api/openmeteo?lat=&lon=&dias=` | ✅ local | Serie diaria Open-Meteo: tmed/tmax/tmin, prec, hr, humedad del suelo 0-7 y 7-28 cm, ET0 |
 
 ## 4. Peculiaridades de AEMET OpenData ya resueltas (no repetir errores)
 
@@ -77,12 +78,40 @@ requirements.txt  .env.example  .gitignore  NOTAS.md
 6. **Retraso de publicación**: los diarios llegan con ~2-3 días de retraso.
 7. `hr` (humedad relativa) llega **vacía** en el endpoint de diarios; `sol` (horas) sí llega.
 8. Peticiones de diarios en bloques de 30 días (`CHUNK_DAYS`), por prudencia.
+9. Estación sin datos en el periodo → `estado: 404` "No hay datos que satisfagan esos criterios"
+   (p. ej. 9027X Sargentes de la Lora en oct-nov 2026). Se informa por estación, no tumba la petición.
+10. Cobertura irregular: Aranda (2117D) solo tenía 7 de 21 días. Por eso `/api/comparar` devuelve
+    `cobertura_prec` y un aviso; una suma de lluvia sin cobertura engaña.
+11. No hay network secret de AEMET en el entorno (nov-2026): sin clave, AEMET responde 200 con
+    cuerpo vacío. Las pruebas contra AEMET se hacen vía Render.
 
 Burgos tiene 14 estaciones climatológicas en el inventario (indicativos: 2106B, 2117D, 2285B,
 2290Y, 2298, 2302N, 2311Y, 2331 [Burgos Aeropuerto], 9012E, 9027X, 9031C, 9051, 9069C, 9111).
 
 Dato real observado (Burgos Aeropuerto, 7 oct – 3 nov 2026): solo ~4.6 mm de lluvia en 30 días,
 heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una campaña pobre.
+
+## 4b. Open-Meteo Historical (`app/openmeteo.py`) — comprobado nov-2026
+
+- Endpoint: `https://archive-api.open-meteo.com/v1/archive`, sin clave.
+- La web de documentación (`open-meteo.com`) **no está en la lista de red** de la sesión:
+  los nombres se confirmaron **probándolos contra la API** y las condiciones por búsqueda web.
+- Variables diarias válidas (probadas): `temperature_2m_mean/max/min`, `precipitation_sum`,
+  `rain_sum`, `relative_humidity_2m_mean`, `soil_moisture_0_to_7cm_mean`,
+  `soil_moisture_7_to_28cm_mean`, `soil_moisture_28_to_100cm_mean`,
+  `et0_fao_evapotranspiration`, `dew_point_2m_mean`, `sunshine_duration` (s).
+  - `soil_moisture_0_to_10cm_mean` existe pero devuelve `null` aquí (es de otros modelos).
+  - `sunshine_duration` da valores irreales en noviembre (36 000 s = 10 h): **no usar**.
+- Modelos: `best_match` = **ECMWF IFS (~9 km)** y llega **hasta ayer**. `era5`/`era5_land`
+  llevan **~6 días de retraso** (null en los últimos días). Se usa `best_match`.
+- Varias coordenadas en una petición (`latitude=a,b&longitude=c,d`) → devuelve una lista.
+  Parámetro `elevation` corrige temperatura por altitud (se pasa la de la estación).
+- Condiciones: gratis **solo uso no comercial**, < 10 000 llamadas/día, 5 000/h, 600/min;
+  licencia **CC BY 4.0** → atribución visible "Weather data by Open-Meteo.com".
+  Cada coordenada cuenta como llamada; >2 semanas o >10 variables cuentan como fracciones extra.
+  Por eso: lotes de 50 puntos y caché en memoria de 6 h.
+- El proxy de la sesión de Claude **corta conexiones** a veces (reset): el cliente reintenta.
+- Endpoint propio: `GET /api/openmeteo?lat=..&lon=..&dias=30&elevacion=..`.
 
 ## 5. Base de conocimiento micológica (resumen)
 
@@ -106,8 +135,8 @@ heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una ca
 
 ### Fase 1 — Piloto Burgos (EN CURSO)
 1. ✅ Cliente AEMET + estaciones + diarios.
-2. ⚠️ Verificar `/api/comparar` en Render.
-3. ⏭️ **Integrar Open-Meteo Historical Weather API** (`archive-api.open-meteo.com`, sin clave,
+2. ✅ Verificar `/api/comparar` en Render (añadida cobertura de datos).
+3. ✅ **Integrar Open-Meteo Historical Weather API** (`archive-api.open-meteo.com`, sin clave,
    reanálisis ERA5/ERA5-Land ~10 km): temperatura, precipitación, **humedad relativa**,
    **humedad del suelo** (`soil_moisture_*`), quizá ET0. Confirmar nombres de parámetros
    y condiciones de uso contra su documentación antes de codificar.

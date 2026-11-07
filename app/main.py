@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import aemet
+from app import openmeteo
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -62,3 +63,20 @@ async def diarios(
     except aemet.AemetError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"indicativo": indicativo, "desde": inicio.isoformat(), "hasta": fin.isoformat(), "valores": valores}
+
+
+@app.get("/api/openmeteo")
+async def openmeteo_diarios(
+    lat: float = Query(..., ge=35, le=44.5),
+    lon: float = Query(..., ge=-10, le=5),
+    dias: int = Query(30, ge=1, le=120, description="Días hacia atrás desde ayer"),
+    elevacion: float | None = Query(None, description="Altitud en m para corregir la temperatura"),
+):
+    """Serie diaria de Open-Meteo (reanálisis/análisis) en un punto: T, lluvia, HR, humedad del suelo, ET0."""
+    fin = date.today() - timedelta(days=1)
+    inicio = fin - timedelta(days=dias - 1)
+    try:
+        res = await openmeteo.diarios([(lat, lon, elevacion)], inicio, fin)
+    except openmeteo.OpenMeteoError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"desde": inicio.isoformat(), "hasta": fin.isoformat(), "fuente": openmeteo.ATRIBUCION, **res[0]}
