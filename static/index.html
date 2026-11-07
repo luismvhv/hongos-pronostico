@@ -382,6 +382,11 @@
         const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
         const p = await (await fetch('/api/mapa/progreso', { signal: ctl.signal })).json();
         clearTimeout(t);
+        if (!p.activo && p.en_cache) {
+          $('cargaTitulo').textContent = 'Casi está…';
+          $('cargaFase').textContent = 'Descargando el mapa ya calculado';
+          return ponerProgreso(96, false);
+        }
         if (!p.activo || !p.fase) {
           $('cargaTitulo').textContent = 'Poniéndonos las botas…';
           $('cargaFase').textContent = 'Preparando la consulta meteorológica';

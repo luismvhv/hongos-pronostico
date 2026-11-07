@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 
 app = FastAPI(title="Pronóstico de fructificación (piloto)")
+app.add_middleware(GZipMiddleware, minimum_size=1000)  # el JSON del mapa pasa de ~220 KB a ~25 KB
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
