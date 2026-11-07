@@ -483,6 +483,24 @@
     $('escena').addEventListener('click', lanzarRayo);
     $('escena').addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); lanzarRayo(); } });
 
+    // Render corta con 502/504 las peticiones largas mientras el servidor calcula en frío o
+    // se está desplegando: se reintenta (el cálculo sigue en el servidor y queda en caché).
+    async function pedirMapa(intentos = 8) {
+      for (let i = 1; ; i++) {
+        let r = null;
+        try { r = await fetch('/api/mapa?provincia=BURGOS'); } catch (_) { r = null; }
+        if (r && r.ok) return r.json();
+        const transitorio = !r || [502, 503, 504].includes(r.status);
+        if (!transitorio || i >= intentos) {
+          let detalle = r ? `Error ${r.status}` : 'Sin conexión con el servidor';
+          if (r) { try { detalle = (await r.json()).detail || detalle; } catch (_) {} }
+          throw new Error(detalle);
+        }
+        if ($('carga').hidden) mostrarCarga();
+        await new Promise(res => setTimeout(res, 5000));
+      }
+    }
+
     // ---------- Arranque ----------
     async function cargar() {
       pintarLeyenda();
@@ -501,9 +519,7 @@
                                                        : { paddingTopRight: [330, 0], padding: [20, 20] });
         });
 
-        const r = await fetch('/api/mapa?provincia=BURGOS');
-        if (!r.ok) throw new Error((await r.json()).detail || `Error ${r.status}`);
-        datos = await r.json();
+        datos = await pedirMapa();
         try {
           const hj = await (await fetch('/static/habitat_burgos.json')).json();
           const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
