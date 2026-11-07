@@ -51,6 +51,8 @@ app/
   main.py      # rutas FastAPI
   aemet.py     # cliente AEMET OpenData
   comparar.py  # resumen comparativo por estación
+  openmeteo.py # cliente Open-Meteo Historical (diarios + lluvia 07-07 UTC)
+  validacion.py # AEMET vs Open-Meteo: métricas y confianza
 static/
   index.html   # mapa Leaflet (ahora solo pinta estaciones)
 requirements.txt  .env.example  .gitignore  NOTAS.md
@@ -63,7 +65,8 @@ requirements.txt  .env.example  .gitignore  NOTAS.md
 | `GET /api/estaciones?provincias=BURGOS,SORIA` | ✅ verificado | Inventario AEMET con lat/lon decimales |
 | `GET /api/diarios/{indicativo}?dias=30` | ✅ verificado | Valores diarios: tmed, tmin, tmax, prec, hr, sol |
 | `GET /api/comparar?provincias=BURGOS&dias=21` | ✅ verificado en Render (nov-2026) | Por estación: lluvia acumulada, días con lluvia, heladas (tmin ≤ 0), tmed media, sol medio, **cobertura** (días con dato, último dato, aviso si < 80 %); ordenado por lluvia |
-| `GET /api/openmeteo?lat=&lon=&dias=` | ✅ local | Serie diaria Open-Meteo: tmed/tmax/tmin, prec, hr, humedad del suelo 0-7 y 7-28 cm, ET0 |
+| `GET /api/validacion?provincias=BURGOS&dias=90` | ✅ verificado en Render | Métricas AEMET vs Open-Meteo y confianza por estación |
+| `GET /api/openmeteo?lat=&lon=&dias=` | ✅ verificado | Serie diaria Open-Meteo: tmed/tmax/tmin, prec, hr, humedad del suelo 0-7 y 7-28 cm, ET0 |
 
 ## 4. Peculiaridades de AEMET OpenData ya resueltas (no repetir errores)
 
@@ -113,6 +116,29 @@ heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una ca
 - El proxy de la sesión de Claude **corta conexiones** a veces (reset): el cliente reintenta.
 - Endpoint propio: `GET /api/openmeteo?lat=..&lon=..&dias=30&elevacion=..`.
 
+## 4c. Validación AEMET vs Open-Meteo (`app/validacion.py`, `GET /api/validacion`)
+
+- **Alineación de la lluvia (comprobada)**: la `prec` diaria de AEMET del día D es el
+  acumulado de **07 UTC de D a 07 UTC de D+1**. Con 14 estaciones × 90 días: r = 0,79 con esa
+  ventana, 0,71 con el día civil y 0,04 con la ventana desplazada un día. Se pide la lluvia
+  horaria de Open-Meteo en GMT y se suma 07→07 (`openmeteo.precip_07a07`).
+- Métricas: MAE/sesgo de tmax, tmin, tmed (Open-Meteo con `elevation` = altitud estación);
+  lluvia: acierto sí/no con umbral **1 mm**, POD, falsas alarmas, ratio de acumulados.
+- Reglas de confianza (provisionales): MAE medio T < 2 °C; acierto > 75 %; ratio en [0,7, 1,4];
+  ≥ 30 días comparables. Todo OK → **alta**; falla 1 → **media**; fallan ≥ 2 → **baja**.
+- **Resultado 9 ago – 6 nov 2026 (Burgos)**: 13 estaciones válidas → 10 alta, 3 media, 0 baja.
+  - Media: 2298 Palacios de la Sierra (MAE T 2,01), 2311Y Villamayor (Open-Meteo ×2,1 de lluvia),
+    9069C Miranda de Ebro (×1,7 de lluvia). 9027X Sargentes: sin datos AEMET.
+  - **Sesgo sistemático**: Open-Meteo subestima tmax (≈ −1,4 °C) y sobreestima tmin (≈ +1 °C;
+    Aranda +2,2 °C por inversión térmica de valle) → **detecta menos heladas de las reales**.
+    Por eso el mapa corrige el sesgo de tmin/tmax cerca de estaciones.
+  - El acierto sí/no está inflado por el periodo seco (la mayoría de días "no llueve" en ambos);
+    mirar también POD (0,71-1,0) y el ratio de acumulados.
+- Rendimiento AEMET en Render: 14 estaciones × 3 bloques = 42 peticiones → aparecían **429**
+  (límite por minuto) y **500** esporádicos en las URL `datos`. Solución: reintentos con espera
+  (`_get_reintentos`), concurrencia 2, caché de diarios 6 h y de la validación 12 h (solo si no
+  hubo fallos transitorios). Primera llamada en frío ≈ 100 s; después, instantánea.
+
 ## 5. Base de conocimiento micológica (resumen)
 
 - La fructificación de micorrícicos (níscalo, boleto) depende en gran parte de humedad y
@@ -140,7 +166,7 @@ heladas el 24/10, 31/10 y 1/11 (mín. -2.9 °C), mucho sol. Coherente con una ca
    reanálisis ERA5/ERA5-Land ~10 km): temperatura, precipitación, **humedad relativa**,
    **humedad del suelo** (`soil_moisture_*`), quizá ET0. Confirmar nombres de parámetros
    y condiciones de uso contra su documentación antes de codificar.
-4. ⏭️ **Validación AEMET vs Open-Meteo** en las 14 estaciones de Burgos (mismas fechas y coords):
+4. ✅ **Validación AEMET vs Open-Meteo** (ver §4c) en las 14 estaciones de Burgos (mismas fechas y coords):
    - Temperatura: MAE y sesgo. Umbral provisional: MAE < 2 °C → confianza alta.
    - Lluvia: acierto llovió/no llovió y ratio de acumulados. Umbral provisional: acierto > 75 %.
    - Si se supera un umbral → confianza media/baja y **mensaje visible** en el mapa
