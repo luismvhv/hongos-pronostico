@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import aemet
 from app import openmeteo
+from app import validacion
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -80,3 +81,20 @@ async def openmeteo_diarios(
     except openmeteo.OpenMeteoError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"desde": inicio.isoformat(), "hasta": fin.isoformat(), "fuente": openmeteo.ATRIBUCION, **res[0]}
+
+
+@app.get("/api/validacion")
+async def validacion_endpoint(
+    provincias: str = Query("BURGOS", description="Provincias separadas por comas"),
+    dias: int = Query(90, ge=30, le=180),
+    series: bool = Query(False, description="Incluir las series diarias de AEMET"),
+):
+    """Compara AEMET (observado) con Open-Meteo (modelo) por estación y da un nivel de confianza."""
+    filtro = {p.strip().upper() for p in provincias.split(",") if p.strip()}
+    try:
+        res = await validacion.validar(filtro, dias)
+    except (aemet.AemetError, openmeteo.OpenMeteoError) as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    if not series:
+        res = {**res, "estaciones": [{k: v for k, v in e.items() if k != "aemet"} for e in res["estaciones"]]}
+    return res
