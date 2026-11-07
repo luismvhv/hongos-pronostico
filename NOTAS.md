@@ -240,6 +240,51 @@ Tampoco hay umbral publicado de helada para el níscalo.
 - `mapa.calcular` usa un **candado**: el precálculo de arranque y las visitas no calculan a la vez
   (antes podían duplicar las ~42 peticiones a AEMET y provocar 429).
 
+## 5e. Fase 2 — Hábitat con Copernicus (nov-2026)
+
+### Qué ofrece Copernicus gratis y qué se ha usado
+| Producto | Resolución | Acceso comprobado | ¿Usado? |
+|---|---|---|---|
+| **HRL Forest Type 2018** (0 no bosque, 1 frondosas, 2 coníferas) | 10 m | ImageServer EEA sin login (`image.discomap.eea.europa.eu/.../GioLandPublic/HRL_ForestType_2018`) | ✅ |
+| **HRL Tree Cover Density 2018** (0-100 %) | 10 m | Ídem (`HRL_TreeCoverDensity_2018`) | ✅ (informativo) |
+| **HRL Grassland 2018** (0/1) | 10 m | Ídem (`HRL_Grassland_2018`) | ✅ |
+| **Copernicus DEM GLO-90** | 90 m | COG en AWS (`copernicus-dem-90m.s3.amazonaws.com`, ya accesible) | ✅ altitud, pendiente, umbría (informativo) |
+| CORINE Land Cover 2018 | 100 m | MapServer EEA (`copernicus.discomap.eea.europa.eu`) | No: el HRL ya da bosque/pradera con más detalle |
+| HRL Small Woody Features, Water & Wetness, Imperviousness | 5-10 m | ImageServer EEA | No (posibles: setos/riberas) |
+| NDVI 300 m, LAI, FAPAR (CLMS vegetación) | 300 m, 10 días | Copernicus Data Space: **requiere cuenta y token** | No — ver siguiente paso |
+| Soil Water Index / humedad superficial (CLMS) | 1 km, diario | CDSE / VITO: requiere cuenta | No (Open-Meteo ya da humedad del suelo) |
+
+- **Interés del NDVI**: Olano et al. 2020, *Agric. For. Meteorol.* 288-289:108015 (Soria, *P. pinaster* y
+  *P. sylvestris*, 22-24 años): el **NDVI del año anterior** fue el mejor predictor individual de la producción
+  (r = 0,41-0,6) y la humedad del suelo por satélite igualó a la lluvia; clima + teledetección R² aj. ≈ 0,63.
+  Es el candidato más prometedor para mejorar el modelo, pero necesita cuenta en Copernicus Data Space
+  (o calcularlo con Sentinel-2 desde AWS, más trabajo).
+- **Mapa Forestal de España** (MITECO, `wms.mapama.gob.es`): distingue especies de árbol (P. sylvestris,
+  pinaster, nigra, Quercus, haya), que Copernicus no. Host añadido a la red, pero el servidor **no envía el
+  certificado intermedio** (FNMT "AC Componentes Informáticos") → error TLS. No se desactiva la verificación;
+  arreglo limpio: permitir `www.cert.fnmt.es` para descargar el intermedio, o usar las descargas MFE50 por provincia.
+- Red: se añadieron al entorno `image.discomap.eea.europa.eu`, `copernicus.discomap.eea.europa.eu` y
+  `wms.mapama.gob.es` (aprobado por Luis). `land.copernicus.eu` y `dataspace.copernicus.eu` siguen sin permitir.
+- **Open-Meteo**: el 7-nov la IP de salida de la sesión de Claude devolvió "Daily API request limit exceeded"
+  (la IP del proxy es compartida). Render no estaba afectado. Para pruebas locales, reutilizar la caché.
+
+### Cómo se calcula
+- `scripts/habitat_burgos.py` (se ejecuta a mano con rasterio/numpy en un venv; no va a Render) descarga los
+  HRL a 0,001° (~100 m, vecino más próximo) y el DEM, y genera `static/habitat_burgos.json` (180 KB, 3 916
+  subceldas de **0,02°** ≈ 1,7 × 2,2 km con: conífera, frondosa, pradera, densidad, altitud, pendiente, umbría).
+- Comprobaciones: pinar de Canicosa 47 % coníferas; Arauzo 37 %; Montes Obarenes 68 % frondosas y 51 % umbría;
+  Valle de Mena 58 % pradera; Ribera del Duero y Tierra de Campos casi sin bosque. Medias provinciales:
+  coníferas 9 %, frondosas 17 %, pradera 14 %.
+- Modelo v1: **índice = clima (celda de 8 × 11 km) × hábitat (subcelda de 2 km)**. Hábitat = fracción del
+  hábitat de la especie / 0,3, máx. 1 (`modelo.HABITAT`; saturación del 30 % **supuesta**):
+  níscalo, negrilla, angula → coníferas; boleto → coníferas + frondosas; oronja → frondosas;
+  seta de cardo y senderuela → pradera (la seta de cardo puede infravalorarse: Copernicus no ve márgenes de cultivo).
+- Altitud, pendiente, umbría y densidad **no puntúan todavía** (no hay cifras en la literatura revisada);
+  se muestran en la ventana de detalle.
+- Frontend: botón "Clima + hábitat / Solo clima" (se recuerda), subceldas dibujadas con canvas (repintado
+  < 0,1 s), las subceldas sin hábitat quedan transparentes, la confianza del clima va en una capa encima.
+  El cálculo clima × hábitat se hace en el navegador con los parámetros de `/api/especies` (una sola fuente).
+
 ## 6. Hoja de ruta acordada (por fases)
 
 ### Fase 1 — Piloto Burgos (EN CURSO)
@@ -262,7 +307,7 @@ Tampoco hay umbral publicado de helada para el níscalo.
 6. ✅ **Mapa de calor de Burgos** (ver §5c): malla de puntos sobre la provincia, puntuación por punto,
    capa coloreada en Leaflet, selector de especie, leyenda y aviso de confianza.
 
-### Fase 2 — Capas de terreno
+### Fase 2 — Capas de terreno (EN CURSO: hábitat Copernicus ✅, ver §5e)
 - **SoilGrids** (ISRIC, `rest.isric.org`): textura, pH, materia orgánica, retención de agua.
 - **Cobertura forestal** de OSM vía Overpass (`landuse=forest`, `natural=wood`, `leaf_type`)
   para descartar celdas sin bosque y asociar especie ↔ tipo de bosque (pinar ↔ níscalo, etc.).

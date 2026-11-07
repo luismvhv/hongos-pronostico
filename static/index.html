@@ -25,6 +25,12 @@
     #panel label { font-size: 13px; color: var(--tinta2); display: block; margin: 6px 0 4px; }
     select { width: 100%; font-size: 14px; padding: 5px; border-radius: 6px; border: 1px solid var(--borde); background: #fff; }
     #cuerpo[hidden], #mini[hidden] { display: none; }
+    .capas { display: flex; gap: 0; margin-top: 8px; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+    .capas label { flex: 1; margin: 0 !important; text-align: center; cursor: pointer; font-size: 13px !important;
+                   padding: 5px 4px; color: var(--tinta) !important; background: #fff; }
+    .capas input { position: absolute; opacity: 0; pointer-events: none; }
+    .capas label:has(input:checked) { background: var(--verde-osc); color: #fff !important; font-weight: 600; }
+    .capas label:has(input:focus-visible) { outline: 2px solid #1c5cab; outline-offset: -2px; }
 
     /* Mini leyenda (panel plegado) */
     #mini { margin-top: 8px; }
@@ -55,6 +61,7 @@
     .tipo.articulo { color: #0a5a0a; border-color: #8bc58b; background: #eef8ee; }
     .tipo.preprint { color: #7a4d00; border-color: #e3c06e; background: #fff7e3; }
     .tipo.tesis { color: #6a3d8a; border-color: #c7a8de; background: #f6effb; }
+    .tipo.datos { color: #0d5c63; border-color: #8fcbd0; background: #eaf7f8; }
     .tipo.parte { color: #164a8a; border-color: #9cbde6; background: #eef4fc; }
     .tipo.divulgacion { color: #55554f; border-color: #c9c7bf; background: #f4f3ef; }
     .supuesto { background: #f4f3ef; border-left: 4px solid #9a9890; padding: 6px 8px; font-size: 12.5px; margin-top: 6px; }
@@ -119,6 +126,10 @@
     </div>
     <label for="especie">Especie</label>
     <select id="especie"></select>
+    <div class="capas" role="radiogroup" aria-label="Qué se muestra">
+      <label><input type="radio" name="capa" value="habitat" checked> Clima + hábitat</label>
+      <label><input type="radio" name="capa" value="clima"> Solo clima</label>
+    </div>
 
     <div id="mini" hidden>
       <div class="rampa" id="miniRampa"></div>
@@ -131,9 +142,9 @@
       <div class="aviso" id="avisoConfianza" hidden></div>
       <div class="estado" id="estado">Cargando…</div>
       <div class="nota">
-        Índice 0-100 de lo favorable que ha sido el tiempo reciente (lluvia, humedad del suelo, temperatura,
-        heladas y época). <b>No es una probabilidad</b> ni garantiza setas: no tiene en cuenta todavía el
-        bosque, el suelo ni la orientación. Modelo v0 sin calibrar.
+        Índice 0-100: lo favorable que ha sido el tiempo reciente (lluvia, humedad del suelo, temperatura,
+        heladas y época) multiplicado, en "Clima + hábitat", por la presencia del bosque o pasto de cada
+        especie según Copernicus. <b>No es una probabilidad</b> ni garantiza setas. Modelo v1 sin calibrar.
       </div>
 
       <details id="metodo">
@@ -143,10 +154,13 @@
         <h3 id="tituloEspecie">En qué se basa esta especie</h3>
         <div id="resumenEspecie" class="nota" style="margin-top:0"></div>
         <ul class="fuentes" id="fuentesEspecie"></ul>
+        <div class="nota" id="habitatEspecie"></div>
         <div class="supuesto" id="supuestosEspecie"></div>
         <h3>Fuentes generales (agua y calor, todas las especies)</h3>
         <ul class="fuentes" id="fuentesGenerales"></ul>
-        <h3>Datos</h3>
+        <h3>Hábitat (Copernicus)</h3>
+        <ul class="fuentes" id="fuentesHabitat"></ul>
+        <h3>Datos meteorológicos y cartografía</h3>
         <ul class="fuentes" id="fuentesDatos"></ul>
         <p class="nota">Las fuentes científicas se han consultado por sus resúmenes; los umbrales marcados
           como supuestos se calibrarán con partes micológicos reales.</p>
@@ -204,7 +218,7 @@
     ];
     const NOMBRE_FACTOR = { fenologia: 'época del año', agua: 'falta de agua', temperatura: 'temperatura',
                             heladas: 'heladas', calor: 'golpe de calor' };
-    const TIPOS = { articulo: 'Artículo', preprint: 'Preprint', tesis: 'Tesis', parte: 'Parte micológico', divulgacion: 'Divulgación' };
+    const TIPOS = { datos: 'Datos', articulo: 'Artículo', preprint: 'Preprint', tesis: 'Tesis', parte: 'Parte micológico', divulgacion: 'Divulgación' };
     const colorDe = v => CLASES.find(c => v < c.max).color;
     const movil = () => window.innerWidth <= 600;
     const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
@@ -228,7 +242,9 @@
 
     const $ = id => document.getElementById(id);
     const sel = $('especie'), estado = $('estado'), avisoConf = $('avisoConfianza'), ocultarBaja = $('ocultarBaja');
-    let datos = null, catalogo = null;
+    let datos = null, catalogo = null, habitat = null;
+    const lienzo = L.canvas({ padding: 0.3 });   // miles de subceldas: canvas en vez de SVG
+    const capaSel = () => document.querySelector('input[name="capa"]:checked').value;
     const capa = L.layerGroup().addTo(map), capaTrama = L.layerGroup().addTo(map), capaEst = L.layerGroup().addTo(map);
 
     // ---------- Panel plegable ----------
@@ -248,8 +264,9 @@
     function pintarLeyenda() {
       $('leyenda').innerHTML =
         CLASES.map(c => `<div class="fila"><span class="caja" style="background:${c.color}"></span>${c.texto}</div>`).join('') +
-        `<div class="fila"><span class="caja trama"></span>Confianza baja (rayado)</div>` +
-        `<div class="fila"><span class="caja" style="border:2px dashed #55554f;background:none"></span>Confianza media (borde discontinuo)</div>` +
+        `<div class="fila" id="filaSinHabitat"><span class="caja" style="background:repeating-linear-gradient(90deg,#e8e6df 0 4px,#f4f3ef 4px 8px)"></span>Sin hábitat de la especie (se ve el mapa base)</div>` +
+        `<div class="fila"><span class="caja trama"></span>Confianza baja del clima (rayado)</div>` +
+        `<div class="fila"><span class="caja" style="border:2px dashed #55554f;background:none"></span>Confianza media del clima (borde discontinuo)</div>` +
         `<div class="fila"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1f1f1d;border:2px solid #fff;box-shadow:0 0 0 1px #1f1f1d"></span>Estación AEMET</div>`;
     }
 
@@ -266,7 +283,9 @@
       $('fuentesEspecie').innerHTML = e.fuentes.length
         ? e.fuentes.map(id => itemFuente(catalogo.fuentes[id])).join('')
         : '<li><span class="tipo divulgacion">Sin estudios</span>No se ha encontrado ninguna fuente específica con cifras para esta especie.</li>';
-      $('supuestosEspecie').innerHTML = `<b>Supuestos:</b> ${e.supuestos}`;
+      $('supuestosEspecie').innerHTML = `<b>Supuestos:</b> ${e.supuestos} El umbral de hábitat (30 % de la superficie) también es supuesto.`;
+      $('habitatEspecie').innerHTML = `<b>Hábitat que se usa:</b> ${e.habitat.texto}`;
+      $('fuentesHabitat').innerHTML = catalogo.fuentes_habitat.map(id => itemFuente(catalogo.fuentes[id])).join('');
       $('fuentesGenerales').innerHTML = catalogo.fuentes_generales.map(id => itemFuente(catalogo.fuentes[id])).join('');
       $('fuentesDatos').innerHTML = [
         ['AEMET OpenData: observaciones diarias de las estaciones', 'https://opendata.aemet.es'],
@@ -293,27 +312,66 @@
         </table>${c.aviso ? `<div class="aviso">${c.aviso}</div>` : ''}</div>`;
     }
 
+    const pct = x => Math.round(100 * x) + ' %';
+    function factorHabitat(sp, sub) {
+      const h = catalogo.especies.find(e => e.id === sp).habitat;
+      const f = Object.entries(h.capas).reduce((a, [k, w]) => a + w * (sub[k] || 0), 0);
+      return Math.min(1, f / h.saturacion);
+    }
+    function popupSub(sub, c, sp, fh, v) {
+      const ori = sub.umbria >= 0.3 ? 'muchas laderas en umbría' : sub.umbria >= 0.1 ? 'algo de umbría' : 'pocas umbrías';
+      return `<div class="popup"><b>${v} / 100</b> — ${sel.selectedOptions[0].text}<br>
+        Clima de la zona: <b>${c.especies[sp].indice}</b> × hábitat <b>${fh.toFixed(2)}</b>
+        <table>
+          <tr><td>Pinar / coníferas</td><td>${pct(sub.conifera)}</td></tr>
+          <tr><td>Frondosas</td><td>${pct(sub.frondosa)}</td></tr>
+          <tr><td>Praderas</td><td>${pct(sub.pradera)}</td></tr>
+          <tr><td>Densidad del arbolado</td><td>${sub.densidad} %</td></tr>
+          <tr><td>Altitud · pendiente</td><td>${sub.altitud} m · ${sub.pendiente}°</td></tr>
+          <tr><td>Orientación</td><td>${ori} (${pct(sub.umbria)} al norte)</td></tr>
+        </table><hr style="border:none;border-top:1px solid #d8d6cf">` + popupCelda(c, sp).replace('<div class="popup">', '<div>')
+        .replace(/<b>\d+ \/ 100<\/b> — [^<]*<br>/, 'Clima: ').replace('<td>Altitud</td>', '<td>Altitud (modelo meteorológico)</td>') + '</div>';
+    }
+
     function pintar() {
       if (!datos) return;
       const sp = sel.value, h = datos.paso_grados / 2;
       capa.clearLayers(); capaTrama.clearLayers();
       const n = { alta: 0, media: 0, baja: 0 };
+      const conHabitat = capaSel() === 'habitat' && habitat;
+      const fila = $('filaSinHabitat'); if (fila) fila.hidden = !conHabitat;
       datos.celdas.forEach(c => {
         n[c.confianza]++;
         if (ocultarBaja.checked && c.confianza === 'baja') return;
         const b = [[c.lat - h, c.lon - h], [c.lat + h, c.lon + h]];
         const v = c.especies[sp].indice;
-        capa.addLayer(L.rectangle(b, {
-          color: c.confianza === 'media' ? '#55554f' : '#ffffff',
-          weight: c.confianza === 'media' ? 1.5 : 0.5,
-          dashArray: c.confianza === 'media' ? '4 3' : null,
-          fillColor: colorDe(v), fillOpacity: 0.75,
-        }).bindTooltip(`${v}/100 · confianza ${c.confianza}`, { sticky: true })
-          .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 }));
-        if (c.confianza === 'baja') {
-          capaTrama.addLayer(L.rectangle(b, { stroke: false, fillColor: 'url(#trama-baja)', fillOpacity: 1, interactive: false }));
+        if (!conHabitat) {
+          capa.addLayer(L.rectangle(b, { renderer: lienzo, stroke: false, fillColor: colorDe(v), fillOpacity: 0.75 })
+            .bindTooltip(`${v}/100 · confianza ${c.confianza}`, { sticky: true })
+            .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 }));
+        }
+        // Confianza encima (SVG): borde discontinuo = media, rayado = baja
+        if (c.confianza !== 'alta') {
+          capaTrama.addLayer(L.rectangle(b, {
+            color: c.confianza === 'media' ? '#8a8880' : '#55554f', weight: c.confianza === 'media' ? 1 : 0.8, dashArray: c.confianza === 'media' ? '4 3' : null,
+            fill: c.confianza === 'baja', fillColor: 'url(#trama-baja)', fillOpacity: 1, interactive: false,
+          }));
         }
       });
+      if (conHabitat) {
+        const hs = habitat.paso_grados / 2;
+        habitat.subs.forEach(sub => {
+          const c = sub.padre;
+          if (!c || (ocultarBaja.checked && c.confianza === 'baja')) return;
+          const fh = factorHabitat(sp, sub);
+          if (fh < 0.05) return;   // sin hábitat de la especie: transparente (se ve el mapa base)
+          const v = Math.round(c.especies[sp].indice * fh);
+          capa.addLayer(L.rectangle([[sub.lat - hs, sub.lon - hs], [sub.lat + hs, sub.lon + hs]], {
+            renderer: lienzo, stroke: false, fillColor: colorDe(v), fillOpacity: 0.8,
+          }).bindTooltip(`${v}/100 · clima ${c.especies[sp].indice} × hábitat ${fh.toFixed(2)}`, { sticky: true })
+            .bindPopup(() => popupSub(sub, c, sp, fh, v), { maxWidth: 330 }));
+        });
+      }
       crearTrama();
 
       const partes = [];
@@ -446,7 +504,23 @@
         const r = await fetch('/api/mapa?provincia=BURGOS');
         if (!r.ok) throw new Error((await r.json()).detail || `Error ${r.status}`);
         datos = await r.json();
-        estado.textContent = `Datos hasta ${datos.datos_hasta} · ${datos.celdas.length} celdas de ${datos.paso_grados}° (≈ 8 × 11 km). Pulsa una celda para ver el detalle.`;
+        try {
+          const hj = await (await fetch('/static/habitat_burgos.json')).json();
+          const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
+          const cercana = (la, lo) => datos.celdas.reduce((m, c) =>
+            ((c.lat - la) ** 2 + ((c.lon - lo) * 0.74) ** 2 < (m.lat - la) ** 2 + ((m.lon - lo) * 0.74) ** 2 ? c : m));
+          habitat = { paso_grados: hj.paso_grados, subs: hj.celdas.map(f => {
+            const sub = Object.fromEntries(hj.campos.map((k, i) => [k, f[i]]));
+            const clave = `${(Math.floor(sub.lat * 10 + 1e-9) / 10 + 0.05).toFixed(2)},${(Math.floor(sub.lon * 10 + 1e-9) / 10 + 0.05).toFixed(2)}`;
+            sub.padre = porClave.get(clave) || cercana(sub.lat, sub.lon);
+            return sub;
+          }) };
+        } catch (e) {
+          habitat = null;   // sin capa de hábitat se muestra solo el clima
+          console.warn('Sin capa de hábitat', e);
+        }
+        estado.textContent = `Datos hasta ${datos.datos_hasta} · clima en ${datos.celdas.length} celdas de ≈ 8 × 11 km` +
+          (habitat ? ` · hábitat en ${habitat.subs.length} subceldas de ≈ 2 km` : '') + '. Pulsa el mapa para ver el detalle.';
         pintarEstaciones();
         pintar();
       } catch (err) {
@@ -459,6 +533,8 @@
     }
     sel.addEventListener('change', () => { guardar('especie', sel.value); pintar(); pintarMetodo(); });
     ocultarBaja.addEventListener('change', pintar);
+    document.querySelectorAll('input[name="capa"]').forEach(r => r.addEventListener('change', () => { guardar('capa', capaSel()); pintar(); }));
+    if (leer('capa') === 'clima') document.querySelector('input[value="clima"]').checked = true;
     cargar();
   </script>
 </body>

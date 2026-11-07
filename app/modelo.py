@@ -286,7 +286,49 @@ FUENTES = {
         "url": "https://monaconatureencyclopedia.com/cantharellus-lutescens/?lang=en", "tipo": "divulgacion",
         "aporta": "Fructifica de finales de otoño a principios de invierno, sobre todo en coníferas.",
     },
+    "copernicus_hrl": {
+        "cita": "Copernicus Land Monitoring Service: High Resolution Layers Forest Type, Tree Cover Density y Grassland 2018 (10 m). EEA.",
+        "url": "https://land.copernicus.eu/en/products/high-resolution-layer-forests-and-tree-cover", "tipo": "datos",
+        "aporta": "Dónde hay bosque de coníferas, de frondosas y praderas, con 10 m de detalle.",
+    },
+    "copernicus_dem": {
+        "cita": "Copernicus DEM GLO-90 (ESA / Airbus), vía AWS Open Data.",
+        "url": "https://registry.opendata.aws/copernicus-dem/", "tipo": "datos",
+        "aporta": "Altitud, pendiente y orientación de las laderas (umbrías).",
+    },
 }
+
+# --- Hábitat (Fase 2, capa de Copernicus precalculada en static/habitat_burgos.json) ----------
+# El factor de hábitat de una subcelda (≈ 1,7 × 2,2 km) es la fracción de su superficie que
+# ocupa el hábitat de la especie, saturando en `saturacion` (si el 30 % de la subcelda es pinar,
+# el níscalo tiene hábitat pleno). La asociación especie ↔ hábitat está bien establecida en la
+# micología de campo; el umbral de saturación es un SUPUESTO.
+# Limitación: Copernicus solo distingue coníferas y frondosas, no la especie de árbol
+# (en Burgos las coníferas son casi todas pinos; las frondosas, robles, quejigos, encinas y hayas).
+HABITAT = {
+    "lactarius_deliciosus": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
+                             "texto": "Pinares (micorrícico de pinos)."},
+    "boletus_edulis": {"capas": {"conifera": 1.0, "frondosa": 1.0}, "saturacion": 0.3,
+                       "texto": "Pinares, hayedos, robledales y castañares (hospedadores variados)."},
+    "amanita_caesarea": {"capas": {"frondosa": 1.0}, "saturacion": 0.3,
+                         "texto": "Bosques de frondosas: robles, encinas, castaños."},
+    "pleurotus_eryngii": {"capas": {"pradera": 1.0}, "saturacion": 0.3,
+                          "texto": "Pastos y eriales con cardo corredor (Eryngium campestre). "
+                                   "Copernicus no ve los márgenes de cultivo: puede infravalorarse."},
+    "tricholoma_terreum": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
+                           "texto": "Pinares."},
+    "cantharellus_lutescens": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
+                               "texto": "Bosques de coníferas, sobre musgo."},
+    "marasmius_oreades": {"capas": {"pradera": 1.0}, "saturacion": 0.3,
+                          "texto": "Praderas y pastos (corros de brujas)."},
+}
+
+
+def habitat(especie: str, sub: dict) -> float:
+    """Factor de hábitat 0-1 de una subcelda (dict con conifera, frondosa, pradera)."""
+    h = HABITAT[especie]
+    frac = sum(peso * (sub.get(capa) or 0) for capa, peso in h["capas"].items())
+    return round(min(1.0, frac / h["saturacion"]), 3)
 
 FUENTES_ESPECIE = {
     "lactarius_deliciosus": {
@@ -332,8 +374,11 @@ METODO = [
     "heladas de los últimos 10 días y, en el boleto, golpes de calor.",
     "El índice es 100 × el producto de los factores: basta con que uno falle (por ejemplo, sin agua) "
     "para que el resultado baje mucho.",
-    "No es una probabilidad calibrada ni sabe si hay bosque, árbol huésped o suelo adecuados. "
-    "Modelo v0: pendiente de calibrar con partes micológicos reales.",
+    "Hábitat (Copernicus): en una malla fina de unos 2 km se mira qué parte del terreno es pinar, "
+    "bosque de frondosas o pradera, y se multiplica por el clima de su celda. Una zona sin el árbol "
+    "de la especie queda a 0 aunque el tiempo sea perfecto. Se puede ver también solo el clima.",
+    "No es una probabilidad calibrada: no distingue la especie de árbol (solo coníferas o frondosas), "
+    "ni el suelo, ni la edad del bosque. Modelo v1: pendiente de calibrar con partes micológicos reales.",
 ]
 
 
@@ -342,5 +387,7 @@ def catalogo() -> dict:
     for k, p in ESPECIES.items():
         fe = FUENTES_ESPECIE.get(k, {})
         especies.append({"id": k, "nombre": p["nombre"], "grupo": p["grupo"], "resumen": p["fuentes"],
-                         "fuentes": fe.get("fuentes", []), "supuestos": fe.get("supuestos")})
-    return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES}
+                         "fuentes": fe.get("fuentes", []), "supuestos": fe.get("supuestos"),
+                         "habitat": HABITAT[k]})
+    return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES,
+            "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"]}
