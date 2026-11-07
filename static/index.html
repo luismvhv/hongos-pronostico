@@ -68,6 +68,18 @@
 
     .popup td { padding: 1px 6px 1px 0; font-size: 12px; vertical-align: top; }
     .popup b { font-size: 13px; }
+    .ruta { margin: 8px 0 6px; }
+    .btn-ruta { width: 100%; border: none; border-radius: 8px; background: var(--verde-osc); color: #fff; font-size: 14px;
+                font-weight: 600; padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-ruta:hover { background: #00542c; }
+    .btn-ruta:focus-visible, .apps a:focus-visible, .apps button:focus-visible { outline: 2px solid #1c5cab; outline-offset: 2px; }
+    .apps { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .apps[hidden] { display: none; }
+    .apps a, .apps button { display: block; text-align: center; padding: 7px 4px; border: 1px solid var(--borde); border-radius: 8px;
+                            background: #fff; color: var(--tinta) !important; text-decoration: none; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .apps a:hover, .apps button:hover { background: var(--suave); }
+    .apps .ancho { grid-column: 1 / -1; }
+    .ruta .nota { margin-top: 6px; font-size: 11.5px; }
 
     /* ---------- Pantalla de carga ---------- */
     #carga { position: absolute; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
@@ -295,6 +307,65 @@
       ].map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('');
     }
 
+    // En móvil el panel ocupa la parte de abajo: la ventana emergente se limita al hueco libre
+    // (con desplazamiento interno) y el mapa se recoloca para que no quede tapada.
+    function opcionesPopup(ancho) {
+      const panel = $('panel').getBoundingClientRect();
+      const abajo = movil() ? Math.round(window.innerHeight - panel.top) + 10 : 10;
+      const derecha = movil() ? 10 : Math.round(window.innerWidth - panel.left) + 10;
+      return { maxWidth: ancho, maxHeight: Math.max(220, window.innerHeight - abajo - 40),
+               autoPanPaddingTopLeft: [10, 10], autoPanPaddingBottomRight: [derecha, abajo] };
+    }
+
+    // ---------- Cómo llegar ----------
+    // Las apps de navegación usan la ubicación actual del usuario como origen si no se indica otro,
+    // así que basta con el destino. Destino = el punto exacto que se ha tocado en el mapa.
+    function bloqueRuta(lat, lon) {
+      const la = lat.toFixed(5), lo = lon.toFixed(5);
+      const ios = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+      const android = /Android/.test(navigator.userAgent);
+      const apps = [
+        ['Google Maps', `https://www.google.com/maps/dir/?api=1&destination=${la},${lo}&travelmode=driving`],
+        ['Apple Mapas', `https://maps.apple.com/?daddr=${la},${lo}&dirflg=d`],
+        ['Waze', `https://waze.com/ul?ll=${la},${lo}&navigate=yes`],
+      ];
+      if (ios) apps.unshift(apps.splice(1, 1)[0]);         // en iPhone, Apple Mapas primero
+      const enlaces = apps.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${n}</a>`).join('') +
+        (android ? `<a href="geo:${la},${lo}?q=${la},${lo}(Zona%20de%20setas)">Otra app…</a>` : '') +
+        `<button type="button" class="copiar${android ? '' : ' ancho'}" data-coord="${la}, ${lo}">Copiar coordenadas</button>`;
+      const div = document.createElement('div');
+      div.className = 'ruta';
+      div.innerHTML = `<button type="button" class="btn-ruta" aria-expanded="false"><span aria-hidden="true">🧭</span> Cómo llegar aquí</button>
+        <div class="apps" hidden>${enlaces}</div>
+        <div class="nota" hidden>Ruta desde tu ubicación hasta el punto tocado (${la}, ${lo}). Puede no haber camino hasta
+          ese punto exacto: revisa la ruta y respeta fincas privadas, cotos micológicos y espacios protegidos.</div>`;
+      const btn = div.querySelector('.btn-ruta');
+      btn.addEventListener('click', () => {
+        const abrir = btn.getAttribute('aria-expanded') !== 'true';
+        btn.setAttribute('aria-expanded', String(abrir));
+        div.querySelector('.apps').hidden = !abrir;
+        div.querySelector('.nota').hidden = !abrir;
+      });
+      div.querySelector('.copiar').addEventListener('click', async ev => {
+        const b = ev.currentTarget, txt = b.dataset.coord;
+        try { await navigator.clipboard.writeText(txt); b.textContent = '¡Copiadas!'; }
+        catch (_) { window.prompt('Copia las coordenadas:', txt); }
+        setTimeout(() => { b.textContent = 'Copiar coordenadas'; }, 2000);
+      });
+      return div;
+    }
+    map.on('popupopen', e => {
+      const cont = e.popup.getElement()?.querySelector('.leaflet-popup-content');
+      const pop = cont?.querySelector('.popup');
+      if (!pop || pop.querySelector('.ruta')) return;    // solo en las celdas (no en estaciones)
+      const ll = e.popup.getLatLng();
+      pop.querySelector('table').before(bloqueRuta(ll.lat, ll.lng));
+      // Fijar el nodo ya modificado como contenido: update() regeneraría el HTML desde la función
+      // original y borraría el botón. Con el nodo fijo, update() solo recoloca la ventana.
+      e.popup.setContent(pop);
+      pop.querySelector('.btn-ruta').addEventListener('click', () => setTimeout(() => e.popup.update(), 0));
+    });
+
     // ---------- Mapa ----------
     function popupCelda(c, sp) {
       const e = c.especies[sp], i = c.indicadores;
@@ -348,7 +419,7 @@
         if (!conHabitat) {
           capa.addLayer(L.rectangle(b, { renderer: lienzo, stroke: false, fillColor: colorDe(v), fillOpacity: 0.75 })
             .bindTooltip(`${v}/100 · confianza ${c.confianza}`, { sticky: true })
-            .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 }));
+            .bindPopup(() => popupCelda(c, sp), opcionesPopup(320)));
         }
         // Confianza encima (SVG): borde discontinuo = media, rayado = baja
         if (c.confianza !== 'alta') {
@@ -369,7 +440,7 @@
           capa.addLayer(L.rectangle([[sub.lat - hs, sub.lon - hs], [sub.lat + hs, sub.lon + hs]], {
             renderer: lienzo, stroke: false, fillColor: colorDe(v), fillOpacity: 0.8,
           }).bindTooltip(`${v}/100 · clima ${c.especies[sp].indice} × hábitat ${fh.toFixed(2)}`, { sticky: true })
-            .bindPopup(() => popupSub(sub, c, sp, fh, v), { maxWidth: 330 }));
+            .bindPopup(() => popupSub(sub, c, sp, fh, v), opcionesPopup(330)));
         });
       }
       crearTrama();
