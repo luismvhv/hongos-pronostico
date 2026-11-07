@@ -10,6 +10,7 @@ from app import openmeteo
 from app import validacion
 from app import modelo
 from app import mapa
+from app import progreso
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,7 +106,7 @@ async def validacion_endpoint(
 @app.get("/api/especies")
 async def especies():
     """Catálogo de especies del modelo v0, con las fuentes de cada perfil."""
-    return {"especies": modelo.catalogo()}
+    return modelo.catalogo()
 
 
 @app.get("/api/favorabilidad")
@@ -135,6 +136,12 @@ async def mapa_endpoint(provincia: str = Query("BURGOS")):
         return await mapa.calcular(prov)
     except openmeteo.OpenMeteoError as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.get("/api/mapa/progreso")
+async def mapa_progreso():
+    """Estado del cálculo en curso (para la pantalla de carga)."""
+    return {**progreso.leer(), "en_cache": mapa.en_cache("BURGOS")}
 
 
 @app.on_event("startup")

@@ -55,6 +55,7 @@ app/
   validacion.py # AEMET vs Open-Meteo: métricas y confianza
   modelo.py    # índice de favorabilidad v0 por especie
   mapa.py      # malla de Burgos, fusión AEMET + Open-Meteo, confianza por celda
+  progreso.py  # estado del cálculo para la pantalla de carga
 static/
   index.html   # mapa de calor Leaflet (selector de especie, leyenda, confianza)
   burgos.geojson # contorno provincial (IGN vía es-atlas)
@@ -65,6 +66,7 @@ requirements.txt  .env.example  .gitignore  NOTAS.md
 | Ruta | Estado | Qué hace |
 |---|---|---|
 | `GET /` | ✅ | Mapa de calor de Burgos por especie |
+| `GET /api/mapa/progreso` | ✅ | Fase y avance del cálculo en curso (pantalla de carga) |
 | `GET /api/mapa?provincia=BURGOS` | ✅ | Celdas con índice por especie, indicadores, confianza y aviso |
 | `GET /api/estaciones?provincias=BURGOS,SORIA` | ✅ verificado | Inventario AEMET con lat/lon decimales |
 | `GET /api/diarios/{indicativo}?dias=30` | ✅ verificado | Valores diarios: tmed, tmin, tmax, prec, hr, sol |
@@ -218,6 +220,25 @@ Tampoco hay umbral publicado de helada para el níscalo.
   sesión; en Playwright se sirven Leaflet desde npm y un fondo liso (solo para la prueba local).
 - Primer resultado (7-nov-2026): níscalo con media 19/100 en la provincia (limitado por el agua),
   máximos ~60 en Las Merindades (norte, más lluvia); la Demanda alta sale a 0 por heladas.
+
+## 5d. Experiencia de usuario (nov-2026)
+
+- **Panel plegable** (botón "Plegar"/"Leyenda", `aria-expanded`): título y selector de especie siempre
+  visibles; plegado muestra una mini-rampa de color. El estado se recuerda en localStorage;
+  por defecto plegado en móvil (≤ 600 px) y desplegado en escritorio.
+- **"Cómo se calcula y fuentes"** (`<details>` dentro del panel): método en 5 pasos, fuentes
+  **específicas** de la especie elegida y fuentes **generales** (factor agua/calor), cada una con
+  etiqueta de tipo (Artículo, Preprint, Tesis, Parte micológico, Divulgación), enlace y qué aporta,
+  y un recuadro de **Supuestos**. Datos en `modelo.FUENTES`, `FUENTES_ESPECIE`, `FUENTES_GENERALES`,
+  `METODO`, servidos por `GET /api/especies`. Oronja y senderuela no tienen fuente específica:
+  se dice explícitamente.
+- **Pantalla de carga**: solo aparece si `/api/mapa` tarda > 0,7 s. Nube SVG con lluvia, relámpago
+  periódico (tocar la nube lanza un rayo), seta que crece con el progreso, mensajes rotativos.
+  **Progreso real**: `app/progreso.py` + `GET /api/mapa/progreso` (fase, hecho/total: inventario,
+  estaciones AEMET n de 14, Open-Meteo, modelo). Si el progreso no responde, se asume que Render
+  está despertando y se dice. Respeta `prefers-reduced-motion`.
+- `mapa.calcular` usa un **candado**: el precálculo de arranque y las visitas no calculan a la vez
+  (antes podían duplicar las ~42 peticiones a AEMET y provocar 429).
 
 ## 6. Hoja de ruta acordada (por fases)
 

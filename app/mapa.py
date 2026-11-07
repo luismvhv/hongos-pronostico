@@ -13,13 +13,14 @@ Confianza por celda:
 - Partimos del nivel de la estación más cercana (validación AEMET vs Open-Meteo).
 - d ≤ 15 km: ese nivel; 15-35 km: baja un nivel; > 35 km o sin estación válida: baja.
 """
+import asyncio
 import json
 import math
 import time
 from datetime import date, timedelta
 from pathlib import Path
 
-from app import modelo, openmeteo, validacion
+from app import modelo, openmeteo, progreso, validacion
 
 PASO = 0.1
 DIAS = 45
@@ -36,6 +37,12 @@ AVISOS = {
 }
 
 _cache: dict = {}
+_candado = asyncio.Lock()  # un solo cálculo a la vez (precálculo de arranque + visitas) para no saturar AEMET
+
+
+def en_cache(provincia: str = "BURGOS") -> bool:
+    hit = _cache.get(provincia)
+    return bool(hit and time.time() - hit[0] < CACHE_TTL)
 
 
 def _poligonos(provincia: str) -> list[list[list[float]]]:
@@ -116,10 +123,19 @@ def fusionar(om_vals: list[dict], est: dict | None, k: float) -> list[dict]:
 
 
 async def calcular(provincia: str = "BURGOS") -> dict:
-    hit = _cache.get(provincia)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
+    if en_cache(provincia):
+        return _cache[provincia][1]
+    async with _candado:
+        if en_cache(provincia):  # otro cálculo lo terminó mientras esperábamos
+            return _cache[provincia][1]
+        progreso.empezar()
+        try:
+            return await _calcular(provincia)
+        finally:
+            progreso.terminar()
 
+
+async def _calcular(provincia: str) -> dict:
     hoy = date.today()
     fin = hoy - timedelta(days=1)
     inicio = fin - timedelta(days=DIAS - 1)
@@ -134,7 +150,9 @@ async def calcular(provincia: str = "BURGOS") -> dict:
     except Exception as e:  # AEMET caído: el mapa sigue, solo con Open-Meteo y confianza baja
         aviso_global = f"No se pudo validar con AEMET ({e}); todo el mapa tiene confianza baja."
 
+    progreso.fase("openmeteo_malla")
     om = await openmeteo.diarios([(lat, lon) for lat, lon in celdas], inicio, fin)
+    progreso.fase("modelo", len(celdas))
 
     resultado = []
     for (lat, lon), serie in zip(celdas, om):
@@ -147,6 +165,7 @@ async def calcular(provincia: str = "BURGOS") -> dict:
         valores = fusionar(serie["valores"], cercana, k)
         punt = modelo.puntuar_todas(valores, hoy)
         conf = _confianza(cercana, d)
+        progreso.avanzar()
         resultado.append({
             "lat": lat, "lon": lon, "elevacion": serie.get("elevacion"),
             "estacion": cercana["nombre"] if cercana else None,

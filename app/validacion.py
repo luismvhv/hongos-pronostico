@@ -15,7 +15,7 @@ import asyncio
 import time
 from datetime import date, timedelta
 
-from app import aemet, openmeteo
+from app import aemet, openmeteo, progreso
 
 UMBRAL_LLUVIA_MM = 1.0
 UMBRAL_MAE_T = 2.0
@@ -97,8 +97,10 @@ async def validar(provincias: set[str], dias: int = 90) -> dict:
 
     fin = date.today() - timedelta(days=1)
     inicio = fin - timedelta(days=dias - 1)
+    progreso.fase("inventario")
     todas = await aemet.stations()
     estaciones = [s for s in todas if (s.get("provincia") or "").upper() in provincias]
+    progreso.fase("aemet", len(estaciones))
 
     sem = asyncio.Semaphore(MAX_CONCURRENCIA)
 
@@ -108,9 +110,12 @@ async def validar(provincias: set[str], dias: int = 90) -> dict:
                 return await aemet.daily_values(est["indicativo"], inicio, fin), None
             except Exception as e:
                 return [], str(e)
+            finally:
+                progreso.avanzar()
 
     series = await asyncio.gather(*(bajar(e) for e in estaciones))
     puntos = [(e["lat"], e["lon"], e.get("altitud")) for e in estaciones]
+    progreso.fase("openmeteo_estaciones")
     om = await openmeteo.diarios(puntos, inicio, fin, ["temperature_2m_mean", "temperature_2m_max",
                                                        "temperature_2m_min", "precipitation_sum"])
     om_prec = await openmeteo.precip_07a07(puntos, inicio, fin)

@@ -222,6 +222,125 @@ def puntuar_todas(valores: list[dict], hoy: date | None = None) -> dict:
             "especies": {k: puntuar(p, ind, hoy) for k, p in ESPECIES.items()}}
 
 
-def catalogo() -> list[dict]:
-    return [{"id": k, "nombre": p["nombre"], "grupo": p["grupo"], "fuentes": p["fuentes"]}
-            for k, p in ESPECIES.items()]
+# --- Fuentes (se muestran en el mapa, sección "Cómo se calcula") ----------------------------
+# tipo: "articulo" (revisado por pares), "preprint" (sin revisar), "parte" (parte micológico
+# oficial), "tesis" (trabajo académico no publicado en revista), "divulgacion" (no científica). Solo se han leído resúmenes, no textos completos.
+FUENTES = {
+    "alday2017fe": {
+        "cita": "Alday et al. (2017). Record breaking mushroom yields in Spain. Fungal Ecology.",
+        "url": "https://doi.org/10.1016/j.funeco.2017.01.004", "tipo": "articulo",
+        "aporta": "Los años récord de setas los dispara la lluvia de finales de verano y principio de otoño, más que la temperatura.",
+    },
+    "alday2017sr": {
+        "cita": "Alday et al. (2017). Pinares de P. sylvestris en un gradiente de altitud, 8 años. Scientific Reports.",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5382911", "tipo": "articulo",
+        "aporta": "La lluvia de finales de verano y otoño explica la variación; pesa más el año que el sitio.",
+    },
+    "taye2016": {
+        "cita": "Taye et al. (2016). Meteorological conditions and site characteristics driving edible mushroom production in Pinus pinaster forests of Central Spain. Fungal Ecology 23:30-41.",
+        "url": "https://doi.org/10.1016/j.funeco.2016.05.008", "tipo": "articulo",
+        "aporta": "La aparición del níscalo depende sobre todo de la lluvia de otoño (17 años de datos).",
+    },
+    "karavani2018": {
+        "cita": "Karavani et al. (2018). Effect of climatic and soil moisture conditions on mushroom productivity in Mediterranean pine stands. Agricultural and Forest Meteorology 248:432-440.",
+        "url": "https://medfor.eu/sites/default/files/editor/karavani_et_al_final.pdf", "tipo": "articulo",
+        "aporta": "Cuenta la humedad del suelo del mismo mes; la lluvia actúa con ~1 mes de retraso.",
+    },
+    "agreda2015": {
+        "cita": "Ágreda et al. (2015). Increased evapotranspiration demand in a Mediterranean climate might cause a decline in fungal yields under global warming. Global Change Biology 21:3499-3510.",
+        "url": "https://doi.org/10.1111/gcb.12960", "tipo": "articulo",
+        "aporta": "El balance hídrico (lluvia menos evaporación) importa más que la lluvia sola.",
+    },
+    "martinezdearagon2007": {
+        "cita": "Martínez de Aragón et al. (2007). Productivity of ectomycorrhizal and edible saprotrophic fungi in pine forests of the pre-Pyrenees. Forest Ecology and Management.",
+        "url": "https://doi.org/10.1016/j.foreco.2007.06.040", "tipo": "articulo",
+        "aporta": "Lluvia menos evapotranspiración de septiembre-octubre explica la producción anual (citado en segunda mano).",
+    },
+    "pinargrande": {
+        "cita": "Pinar Grande (Soria), serie de 29 años: Climate change-induced shifts in Mediterranean fungal fruiting phenology and productivity (tesis de máster, VCU, 2025).",
+        "url": "https://core.ac.uk/outputs/662020453", "tipo": "tesis",
+        "aporta": "Más lluvia en julio-septiembre alarga la temporada; el calor la acorta en los micorrícicos.",
+    },
+    "biorxiv2025": {
+        "cita": "Predicting porcini: a decade of sporocarp monitoring reveals the meteorological triggers of Boletus edulis fruiting (2025). bioRxiv, preprint.",
+        "url": "https://www.biorxiv.org/content/10.64898/2025.12.12.693895.full.pdf", "tipo": "preprint",
+        "aporta": "Boleto: máximo con unos 13 °C de media en los 20 días previos y más setas cuanta más lluvia en 26 días.",
+    },
+    "salerni2023": {
+        "cita": "Salerni, Paoli y Perini (2023). Italian Journal of Mycology.",
+        "url": "https://doaj.org/article/8b44d1d6b39e4739ab56842f048e3336", "tipo": "articulo",
+        "aporta": "Las subidas bruscas de la temperatura máxima frenan al boleto.",
+    },
+    "micocyl2024": {
+        "cita": "Micocyl, parte micológico de Castilla y León (28-oct-2024).",
+        "url": "https://micocyl.es/sites/default/files/editor/parte_mico_20241028.pdf", "tipo": "parte",
+        "aporta": "Rangos térmicos ideales para el níscalo; seta de cardo citada en Burgos y Soria; especies tardías tolerantes al frío.",
+    },
+    "micocyl2021": {
+        "cita": "Micocyl, parte micológico de Castilla y León (4-nov-2021).",
+        "url": "https://www.micocyl.es/sites/default/files/editor/parte_mico_20211104.pdf", "tipo": "parte",
+        "aporta": "Lluvias de más de 50 l/m² como disparador de nuevas salidas de níscalo.",
+    },
+    "monaco_lutescens": {
+        "cita": "Monaco Nature Encyclopedia: Cantharellus lutescens.",
+        "url": "https://monaconatureencyclopedia.com/cantharellus-lutescens/?lang=en", "tipo": "divulgacion",
+        "aporta": "Fructifica de finales de otoño a principios de invierno, sobre todo en coníferas.",
+    },
+}
+
+FUENTES_ESPECIE = {
+    "lactarius_deliciosus": {
+        "fuentes": ["micocyl2021", "micocyl2024", "taye2016"],
+        "supuestos": "La forma de la curva de lluvia, los pesos del agua y la penalización por heladas (no hay umbral de helada publicado).",
+    },
+    "boletus_edulis": {
+        "fuentes": ["biorxiv2025", "salerni2023", "pinargrande"],
+        "supuestos": "El umbral de 6 °C del golpe de calor, la penalización por heladas y la cantidad de lluvia objetivo.",
+    },
+    "amanita_caesarea": {
+        "fuentes": [],
+        "supuestos": "Casi todo: no se ha encontrado ningún estudio con cifras. Solo se sabe que es termófila (fuentes divulgativas).",
+    },
+    "pleurotus_eryngii": {
+        "fuentes": ["micocyl2024"],
+        "supuestos": "Rangos térmicos y ventana de lluvia (2-3 semanas, según divulgación); no hay estudio cuantitativo.",
+    },
+    "tricholoma_terreum": {
+        "fuentes": ["micocyl2024"],
+        "supuestos": "Rangos térmicos y tolerancia a heladas: solo se sabe que es tardía y aguanta el frío.",
+    },
+    "cantharellus_lutescens": {
+        "fuentes": ["monaco_lutescens"],
+        "supuestos": "Rangos térmicos y tolerancia a heladas; no hay estudio cuantitativo.",
+    },
+    "marasmius_oreades": {
+        "fuentes": [],
+        "supuestos": "Todo el perfil: no se ha encontrado ningún estudio sobre su fructificación.",
+    },
+}
+
+# Respaldan el factor agua y el papel del calor para todas las especies
+FUENTES_GENERALES = ["alday2017fe", "alday2017sr", "karavani2018", "agreda2015", "martinezdearagon2007", "pinargrande"]
+
+METODO = [
+    "Datos: observaciones de las estaciones AEMET de Burgos y el modelo meteorológico de Open-Meteo "
+    "(ECMWF IFS, unos 9 km) en una malla de 159 celdas de unos 8 × 11 km.",
+    "Cerca de cada estación se corrige el modelo con lo que midió AEMET (lluvia y temperaturas); "
+    "lejos de ellas solo se usa el modelo y la confianza baja.",
+    "Para cada especie se puntúan de 0 a 1 cinco factores: época del año, agua (lluvia de las últimas "
+    "semanas con retraso, humedad del suelo y lluvia menos evaporación), temperatura media reciente, "
+    "heladas de los últimos 10 días y, en el boleto, golpes de calor.",
+    "El índice es 100 × el producto de los factores: basta con que uno falle (por ejemplo, sin agua) "
+    "para que el resultado baje mucho.",
+    "No es una probabilidad calibrada ni sabe si hay bosque, árbol huésped o suelo adecuados. "
+    "Modelo v0: pendiente de calibrar con partes micológicos reales.",
+]
+
+
+def catalogo() -> dict:
+    especies = []
+    for k, p in ESPECIES.items():
+        fe = FUENTES_ESPECIE.get(k, {})
+        especies.append({"id": k, "nombre": p["nombre"], "grupo": p["grupo"], "resumen": p["fuentes"],
+                         "fuentes": fe.get("fuentes", []), "supuestos": fe.get("supuestos")})
+    return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES}

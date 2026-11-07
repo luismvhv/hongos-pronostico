@@ -6,15 +6,32 @@
   <title>Favorabilidad de setas — Burgos</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    :root { --tinta: #1f1f1d; --tinta2: #55554f; --borde: #d8d6cf; --fondo: #ffffff; --aviso: #fff4d6; --aviso-borde: #e0b23a; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, sans-serif; color: var(--tinta); background: #f4f3ef; }
+    :root { --tinta: #1f1f1d; --tinta2: #55554f; --borde: #d8d6cf; --fondo: #ffffff; --suave: #f4f3ef;
+            --aviso: #fff4d6; --aviso-borde: #e0b23a; --verde: #31a354; --verde-osc: #006837; --nube: #8f9aa6; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, sans-serif; color: var(--tinta); background: var(--suave); }
     #map { position: absolute; inset: 0; }
+
+    /* ---------- Panel ---------- */
     #panel { position: absolute; top: 10px; right: 10px; z-index: 1000; background: var(--fondo);
-             padding: 12px 14px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.25);
-             width: 300px; max-height: calc(100% - 40px); overflow: auto; font-size: 14px; line-height: 1.35; }
-    #panel h1 { font-size: 16px; margin: 0 0 6px; }
-    #panel label { font-size: 13px; color: var(--tinta2); display: block; margin: 8px 0 4px; }
-    select { width: 100%; font-size: 14px; padding: 4px; }
+             padding: 10px 14px 12px; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,.25);
+             width: 310px; max-height: calc(100% - 40px); overflow: auto; font-size: 14px; line-height: 1.35; }
+    .cabecera { display: flex; align-items: flex-start; gap: 8px; }
+    .cabecera h1 { font-size: 16px; margin: 2px 0 6px; flex: 1; }
+    #plegar { flex: none; border: 1px solid var(--borde); background: var(--suave); border-radius: 8px;
+              font-size: 13px; padding: 4px 8px; cursor: pointer; color: var(--tinta); display: flex; align-items: center; gap: 4px; }
+    #plegar:hover { background: #ebe9e2; }
+    #plegar .flecha { display: inline-block; transition: transform .2s; }
+    #panel.plegado #plegar .flecha { transform: rotate(-90deg); }
+    #panel label { font-size: 13px; color: var(--tinta2); display: block; margin: 6px 0 4px; }
+    select { width: 100%; font-size: 14px; padding: 5px; border-radius: 6px; border: 1px solid var(--borde); background: #fff; }
+    #cuerpo[hidden], #mini[hidden] { display: none; }
+
+    /* Mini leyenda (panel plegado) */
+    #mini { margin-top: 8px; }
+    .rampa { display: flex; height: 10px; border-radius: 3px; overflow: hidden; border: 1px solid #c9c7bf; }
+    .rampa span { flex: 1; }
+    .rampa-txt { display: flex; justify-content: space-between; font-size: 11px; color: var(--tinta2); margin-top: 2px; }
+
     .leyenda { margin-top: 10px; }
     .fila { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 13px; }
     .caja { width: 22px; height: 14px; border: 1px solid #9a9890; flex: none; }
@@ -22,30 +39,156 @@
     .aviso { background: var(--aviso); border-left: 4px solid var(--aviso-borde); padding: 6px 8px; margin-top: 10px; font-size: 13px; }
     .nota { font-size: 12px; color: var(--tinta2); margin-top: 10px; }
     .estado { font-size: 13px; color: var(--tinta2); margin-top: 8px; }
+
+    /* Método y fuentes */
+    details#metodo { margin-top: 12px; border-top: 1px solid var(--borde); padding-top: 8px; }
+    details#metodo summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+    details#metodo h3 { font-size: 13px; margin: 12px 0 4px; }
+    details#metodo ol { padding-left: 18px; margin: 6px 0; font-size: 12.5px; }
+    details#metodo li { margin: 3px 0; }
+    ul.fuentes { list-style: none; padding: 0; margin: 4px 0; font-size: 12.5px; }
+    ul.fuentes li { margin: 0 0 8px; }
+    ul.fuentes a { color: #1c5cab; }
+    .aporta { color: var(--tinta2); display: block; margin-top: 1px; }
+    .tipo { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 5px; border-radius: 4px;
+            border: 1px solid; margin-right: 4px; vertical-align: 1px; }
+    .tipo.articulo { color: #0a5a0a; border-color: #8bc58b; background: #eef8ee; }
+    .tipo.preprint { color: #7a4d00; border-color: #e3c06e; background: #fff7e3; }
+    .tipo.tesis { color: #6a3d8a; border-color: #c7a8de; background: #f6effb; }
+    .tipo.parte { color: #164a8a; border-color: #9cbde6; background: #eef4fc; }
+    .tipo.divulgacion { color: #55554f; border-color: #c9c7bf; background: #f4f3ef; }
+    .supuesto { background: #f4f3ef; border-left: 4px solid #9a9890; padding: 6px 8px; font-size: 12.5px; margin-top: 6px; }
+
     .popup td { padding: 1px 6px 1px 0; font-size: 12px; vertical-align: top; }
     .popup b { font-size: 13px; }
+
+    /* ---------- Pantalla de carga ---------- */
+    #carga { position: absolute; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
+             background: rgba(31, 36, 42, .45); backdrop-filter: blur(2px); transition: opacity .5s; padding: 16px; }
+    #carga.oculta { opacity: 0; pointer-events: none; }
+    #carga[hidden] { display: none; }
+    .tarjeta { background: #fff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.3); width: 360px; max-width: 100%;
+               padding: 18px 22px 16px; text-align: center; }
+    .tarjeta h2 { font-size: 18px; margin: 4px 0 2px; }
+    #escena { width: 200px; height: 170px; cursor: pointer; display: block; margin: 0 auto; -webkit-tap-highlight-color: transparent; }
+    #escena:focus-visible { outline: 2px solid #1c5cab; outline-offset: 4px; border-radius: 8px; }
+    .nube { fill: var(--nube); transition: fill .1s; }
+    .nube-luz { fill: #a9b3bd; }
+    .gota { stroke: #3987e5; stroke-width: 2.5; stroke-linecap: round; animation: caer 1.1s linear infinite; opacity: 0; }
+    @keyframes caer { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 85% { opacity: .9; } 100% { transform: translateY(62px); opacity: 0; } }
+    .rayo { fill: #fab219; stroke: #e8930c; stroke-width: 1; opacity: 0; }
+    .rayo.auto { animation: rayo 7s infinite; }
+    .rayo.ya { animation: rayo-ya .6s; }
+    @keyframes rayo { 0%, 88%, 100% { opacity: 0; } 89%, 91% { opacity: 1; } 90%, 92% { opacity: .2; } }
+    @keyframes rayo-ya { 0% { opacity: 1; } 30% { opacity: .2; } 50% { opacity: 1; } 100% { opacity: 0; } }
+    .destello .nube { fill: #c9d1d9; }
+    .suelo { fill: #8a6d4b; }
+    .hierba { stroke: #5a8f3a; stroke-width: 2; stroke-linecap: round; }
+    #seta { transform-box: fill-box; transform-origin: 50% 100%; transform: scale(.15); transition: transform .8s cubic-bezier(.3,1.6,.5,1); }
+    .sombrero { fill: #e87a2b; }
+    .pie { fill: #f3e6cf; stroke: #cdb894; stroke-width: 1; }
+    .pecas { fill: #fbe3c4; }
+    #cargaFase { font-size: 14px; margin: 6px 0 8px; min-height: 2.6em; }
+    .barra { height: 8px; border-radius: 4px; background: #e9e7e0; overflow: hidden; }
+    #cargaBarra { height: 100%; width: 0; background: linear-gradient(90deg, var(--verde), var(--verde-osc)); transition: width .8s; border-radius: 4px; }
+    .barra.indeterminada #cargaBarra { width: 35% !important; animation: vaiven 1.4s ease-in-out infinite; }
+    @keyframes vaiven { 0% { transform: translateX(-100%); } 100% { transform: translateX(290%); } }
+    #cargaChiste { font-size: 13px; color: var(--tinta2); font-style: italic; margin: 10px 0 6px; min-height: 2.6em; transition: opacity .3s; }
+    .pista { font-size: 11.5px; color: #8a8880; margin: 4px 0 0; }
+
     @media (max-width: 600px) {
-      #panel { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 45%; }
+      #panel { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 55%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .gota, .rayo.auto, .barra.indeterminada #cargaBarra { animation: none; }
+      .gota { opacity: .7; }
+      #seta, #cargaBarra, #carga { transition: none; }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
   <div id="panel">
-    <h1>Favorabilidad climática de setas · Burgos</h1>
+    <div class="cabecera">
+      <h1>Favorabilidad climática de setas · Burgos</h1>
+      <button id="plegar" aria-expanded="true" aria-controls="cuerpo" title="Plegar o desplegar la leyenda">
+        <span class="flecha" aria-hidden="true">▾</span><span id="plegarTxt">Plegar</span>
+      </button>
+    </div>
     <label for="especie">Especie</label>
     <select id="especie"></select>
-    <label><input type="checkbox" id="ocultarBaja"> Ocultar celdas de confianza baja</label>
 
-    <div class="leyenda" id="leyenda"></div>
-    <div class="aviso" id="avisoConfianza" hidden></div>
-    <div class="estado" id="estado">Cargando… la primera carga del día puede tardar 1-2 minutos (se consultan AEMET y Open-Meteo).</div>
-    <div class="nota">
-      Índice 0-100 de lo favorable que ha sido el tiempo reciente (lluvia, humedad del suelo, temperatura,
-      heladas y época). <b>No es una probabilidad</b> ni garantiza setas: no tiene en cuenta todavía el
-      bosque, el suelo ni la orientación. Modelo v0 sin calibrar.
+    <div id="mini" hidden>
+      <div class="rampa" id="miniRampa"></div>
+      <div class="rampa-txt"><span>0 · desfavorable</span><span>favorable · 100</span></div>
     </div>
-    <div class="nota" id="fuentes"></div>
+
+    <div id="cuerpo">
+      <label><input type="checkbox" id="ocultarBaja"> Ocultar celdas de confianza baja</label>
+      <div class="leyenda" id="leyenda"></div>
+      <div class="aviso" id="avisoConfianza" hidden></div>
+      <div class="estado" id="estado">Cargando…</div>
+      <div class="nota">
+        Índice 0-100 de lo favorable que ha sido el tiempo reciente (lluvia, humedad del suelo, temperatura,
+        heladas y época). <b>No es una probabilidad</b> ni garantiza setas: no tiene en cuenta todavía el
+        bosque, el suelo ni la orientación. Modelo v0 sin calibrar.
+      </div>
+
+      <details id="metodo">
+        <summary>Cómo se calcula y fuentes</summary>
+        <h3>Método</h3>
+        <ol id="metodoPasos"></ol>
+        <h3 id="tituloEspecie">En qué se basa esta especie</h3>
+        <div id="resumenEspecie" class="nota" style="margin-top:0"></div>
+        <ul class="fuentes" id="fuentesEspecie"></ul>
+        <div class="supuesto" id="supuestosEspecie"></div>
+        <h3>Fuentes generales (agua y calor, todas las especies)</h3>
+        <ul class="fuentes" id="fuentesGenerales"></ul>
+        <h3>Datos</h3>
+        <ul class="fuentes" id="fuentesDatos"></ul>
+        <p class="nota">Las fuentes científicas se han consultado por sus resúmenes; los umbrales marcados
+          como supuestos se calibrarán con partes micológicos reales.</p>
+      </details>
+    </div>
+  </div>
+
+  <!-- Pantalla de carga -->
+  <div id="carga" hidden role="status" aria-live="polite">
+    <div class="tarjeta">
+      <svg id="escena" viewBox="0 0 200 170" tabindex="0" role="button" aria-label="Nube de tormenta: tócala para lanzar un rayo">
+        <g id="gotas">
+          <line class="gota" x1="62"  y1="72" x2="59"  y2="82" style="animation-delay:0s"/>
+          <line class="gota" x1="82"  y1="74" x2="79"  y2="84" style="animation-delay:.45s"/>
+          <line class="gota" x1="102" y1="72" x2="99"  y2="82" style="animation-delay:.2s"/>
+          <line class="gota" x1="122" y1="74" x2="119" y2="84" style="animation-delay:.7s"/>
+          <line class="gota" x1="142" y1="72" x2="139" y2="82" style="animation-delay:.35s"/>
+          <line class="gota" x1="72"  y1="76" x2="69"  y2="86" style="animation-delay:.9s"/>
+          <line class="gota" x1="132" y1="76" x2="129" y2="86" style="animation-delay:.6s"/>
+        </g>
+        <polygon class="rayo auto" id="rayo" points="108,66 92,98 104,98 96,124 122,88 109,88 118,66"/>
+        <g id="nube">
+          <circle class="nube" cx="70"  cy="52" r="22"/>
+          <circle class="nube" cx="100" cy="38" r="28"/>
+          <circle class="nube" cx="132" cy="50" r="22"/>
+          <rect   class="nube" x="56" y="50" width="92" height="24" rx="12"/>
+          <circle class="nube-luz" cx="92" cy="30" r="9" opacity=".6"/>
+        </g>
+        <rect class="suelo" x="20" y="150" width="160" height="10" rx="5"/>
+        <line class="hierba" x1="40" y1="150" x2="37" y2="141"/><line class="hierba" x1="45" y1="150" x2="47" y2="142"/>
+        <line class="hierba" x1="152" y1="150" x2="149" y2="140"/><line class="hierba" x1="158" y1="150" x2="161" y2="143"/>
+        <g id="seta">
+          <path class="pie" d="M93 150 C94 138 94 130 95 124 L105 124 C106 130 106 138 107 150 Z"/>
+          <path class="sombrero" d="M76 126 C78 106 122 106 124 126 C112 130 88 130 76 126 Z"/>
+          <circle class="pecas" cx="92" cy="116" r="3"/><circle class="pecas" cx="108" cy="114" r="2.5"/><circle class="pecas" cx="100" cy="121" r="2"/>
+        </g>
+      </svg>
+      <h2 id="cargaTitulo">Consultando a AEMET…</h2>
+      <p id="cargaFase">Preparando la consulta</p>
+      <div class="barra indeterminada" id="barra"><div id="cargaBarra"></div></div>
+      <p id="cargaChiste"></p>
+      <p class="pista">La primera visita del día tarda 1-2 minutos; después es casi instantánea. Toca la nube ⚡</p>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -60,7 +203,11 @@
     ];
     const NOMBRE_FACTOR = { fenologia: 'época del año', agua: 'falta de agua', temperatura: 'temperatura',
                             heladas: 'heladas', calor: 'golpe de calor' };
+    const TIPOS = { articulo: 'Artículo', preprint: 'Preprint', tesis: 'Tesis', parte: 'Parte micológico', divulgacion: 'Divulgación' };
     const colorDe = v => CLASES.find(c => v < c.max).color;
+    const movil = () => window.innerWidth <= 600;
+    const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+    const leer = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
 
     const map = L.map('map', { renderer: L.svg() }).setView([42.35, -3.7], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -72,27 +219,63 @@
     function crearTrama() {
       const svg = map.getRenderer(map)._container;
       if (!svg || svg.querySelector('#trama-baja')) return;
-      const ns = 'http://www.w3.org/2000/svg';
-      const defs = document.createElementNS(ns, 'defs');
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
       defs.innerHTML = '<pattern id="trama-baja" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">' +
                        '<line x1="0" y1="0" x2="0" y2="6" stroke="#55554f" stroke-width="1.2" stroke-opacity="0.55"/></pattern>';
       svg.prepend(defs);
     }
 
-    const sel = document.getElementById('especie');
-    const estado = document.getElementById('estado');
-    const avisoConf = document.getElementById('avisoConfianza');
-    const ocultarBaja = document.getElementById('ocultarBaja');
-    let datos = null, capa = L.layerGroup().addTo(map), capaTrama = L.layerGroup().addTo(map), capaEst = L.layerGroup().addTo(map);
+    const $ = id => document.getElementById(id);
+    const sel = $('especie'), estado = $('estado'), avisoConf = $('avisoConfianza'), ocultarBaja = $('ocultarBaja');
+    let datos = null, catalogo = null;
+    const capa = L.layerGroup().addTo(map), capaTrama = L.layerGroup().addTo(map), capaEst = L.layerGroup().addTo(map);
+
+    // ---------- Panel plegable ----------
+    function plegar(plegado, recordar = true) {
+      $('panel').classList.toggle('plegado', plegado);
+      $('cuerpo').hidden = plegado;
+      $('mini').hidden = !plegado;
+      $('plegar').setAttribute('aria-expanded', String(!plegado));
+      $('plegarTxt').textContent = plegado ? 'Leyenda' : 'Plegar';
+      if (recordar) guardar('panelPlegado', plegado ? '1' : '0');
+    }
+    $('plegar').addEventListener('click', () => plegar(!$('panel').classList.contains('plegado')));
+    const preferencia = leer('panelPlegado');
+    plegar(preferencia === null ? movil() : preferencia === '1', false);
+    $('miniRampa').innerHTML = CLASES.map(c => `<span style="background:${c.color}"></span>`).join('');
 
     function pintarLeyenda() {
-      document.getElementById('leyenda').innerHTML =
+      $('leyenda').innerHTML =
         CLASES.map(c => `<div class="fila"><span class="caja" style="background:${c.color}"></span>${c.texto}</div>`).join('') +
         `<div class="fila"><span class="caja trama"></span>Confianza baja (rayado)</div>` +
         `<div class="fila"><span class="caja" style="border:2px dashed #55554f;background:none"></span>Confianza media (borde discontinuo)</div>` +
         `<div class="fila"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1f1f1d;border:2px solid #fff;box-shadow:0 0 0 1px #1f1f1d"></span>Estación AEMET</div>`;
     }
 
+    // ---------- Método y fuentes ----------
+    const itemFuente = f => `<li><span class="tipo ${f.tipo}">${TIPOS[f.tipo] || f.tipo}</span>` +
+      `<a href="${f.url}" target="_blank" rel="noopener">${f.cita}</a><span class="aporta">${f.aporta}</span></li>`;
+
+    function pintarMetodo() {
+      if (!catalogo) return;
+      const e = catalogo.especies.find(x => x.id === sel.value);
+      $('metodoPasos').innerHTML = catalogo.metodo.map(p => `<li>${p}</li>`).join('');
+      $('tituloEspecie').textContent = `En qué se basa: ${e.nombre}`;
+      $('resumenEspecie').textContent = e.resumen;
+      $('fuentesEspecie').innerHTML = e.fuentes.length
+        ? e.fuentes.map(id => itemFuente(catalogo.fuentes[id])).join('')
+        : '<li><span class="tipo divulgacion">Sin estudios</span>No se ha encontrado ninguna fuente específica con cifras para esta especie.</li>';
+      $('supuestosEspecie').innerHTML = `<b>Supuestos:</b> ${e.supuestos}`;
+      $('fuentesGenerales').innerHTML = catalogo.fuentes_generales.map(id => itemFuente(catalogo.fuentes[id])).join('');
+      $('fuentesDatos').innerHTML = [
+        ['AEMET OpenData: observaciones diarias de las estaciones', 'https://opendata.aemet.es'],
+        ['Open-Meteo (ECMWF IFS): Weather data by Open-Meteo.com, CC BY 4.0', 'https://open-meteo.com'],
+        ['IGN, límites provinciales (vía es-atlas)', 'https://github.com/martgnz/es-atlas'],
+        ['OpenStreetMap: mapa base', 'https://www.openstreetmap.org/copyright'],
+      ].map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('');
+    }
+
+    // ---------- Mapa ----------
     function popupCelda(c, sp) {
       const e = c.especies[sp], i = c.indicadores;
       const f = Object.entries(e.factores).map(([k, v]) => `${NOMBRE_FACTOR[k] || k}: ${v.toFixed(2)}`).join(' · ');
@@ -113,32 +296,29 @@
       if (!datos) return;
       const sp = sel.value, h = datos.paso_grados / 2;
       capa.clearLayers(); capaTrama.clearLayers();
-      let n = { alta: 0, media: 0, baja: 0 };
+      const n = { alta: 0, media: 0, baja: 0 };
       datos.celdas.forEach(c => {
         n[c.confianza]++;
         if (ocultarBaja.checked && c.confianza === 'baja') return;
         const b = [[c.lat - h, c.lon - h], [c.lat + h, c.lon + h]];
         const v = c.especies[sp].indice;
-        const r = L.rectangle(b, {
+        capa.addLayer(L.rectangle(b, {
           color: c.confianza === 'media' ? '#55554f' : '#ffffff',
           weight: c.confianza === 'media' ? 1.5 : 0.5,
           dashArray: c.confianza === 'media' ? '4 3' : null,
           fillColor: colorDe(v), fillOpacity: 0.75,
         }).bindTooltip(`${v}/100 · confianza ${c.confianza}`, { sticky: true })
-          .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 });
-        capa.addLayer(r);
+          .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 }));
         if (c.confianza === 'baja') {
           capaTrama.addLayer(L.rectangle(b, { stroke: false, fillColor: 'url(#trama-baja)', fillOpacity: 1, interactive: false }));
         }
       });
       crearTrama();
-      capaTrama.eachLayer(l => l._path && l._path.setAttribute('fill', 'url(#trama-baja)'));
 
-      const total = datos.celdas.length;
       const partes = [];
       if (datos.aviso_global) partes.push(datos.aviso_global);
       if (n.media + n.baja > 0) {
-        partes.push(`Confianza: ${n.alta} celdas alta, ${n.media} media, ${n.baja} baja (de ${total}). ` +
+        partes.push(`Confianza: ${n.alta} celdas alta, ${n.media} media, ${n.baja} baja (de ${datos.celdas.length}). ` +
           `En las celdas con trama o borde discontinuo, el modelo meteorológico diverge de AEMET o no hay estación cerca: la estimación es menos fiable.`);
       }
       avisoConf.hidden = partes.length === 0;
@@ -156,35 +336,122 @@
       });
     }
 
+    // ---------- Pantalla de carga ----------
+    const CHISTES = [
+      'Preguntando a los pinos si ha llovido…',
+      'Contando gotas, una a una…',
+      'Convenciendo a AEMET de que somos gente de fiar…',
+      'Midiendo la humedad del suelo con el dedo…',
+      'Buscando níscalos entre las columnas de datos…',
+      'Comparando lo que dice el modelo con lo que dice el pluviómetro…',
+      'Esperando a que escampe en el servidor…',
+      'Ninguna seta ha sido recolectada durante esta consulta.',
+      'Consultando a la abuela, que siempre sabe dónde salen…',
+      'Pasando lista a las heladas de la semana…',
+    ];
+    const TRAMOS = {  // reparto de la barra por fases (proporcional a lo que suele tardar cada una)
+      inventario: [0, 5], aemet: [5, 70], openmeteo_estaciones: [70, 78],
+      openmeteo_malla: [78, 94], modelo: [94, 100], listo: [100, 100],
+    };
+    const TITULOS = {
+      inventario: 'Consultando a AEMET…', aemet: 'Consultando a AEMET…', openmeteo_estaciones: 'Contrastando datos…',
+      openmeteo_malla: 'Consultando Open-Meteo…', modelo: 'Haciendo crecer las setas…', listo: '¡Listo!',
+    };
+    let sondeo = null, chisteT = null, iChiste = Math.floor(Math.random() * CHISTES.length);
+
+    function mostrarCarga() {
+      $('carga').hidden = false;
+      requestAnimationFrame(() => $('carga').classList.remove('oculta'));
+      const rotar = () => {
+        const p = $('cargaChiste'); p.style.opacity = 0;
+        setTimeout(() => { p.textContent = CHISTES[iChiste++ % CHISTES.length]; p.style.opacity = 1; }, 300);
+      };
+      rotar(); chisteT = setInterval(rotar, 4500);
+      sondeo = setInterval(consultarProgreso, 1500);
+      consultarProgreso();
+    }
+
+    function ponerProgreso(pct, indeterminado) {
+      $('barra').classList.toggle('indeterminada', indeterminado);
+      if (!indeterminado) $('cargaBarra').style.width = pct + '%';
+      $('seta').style.transform = `scale(${0.15 + 0.85 * (indeterminado ? 0.1 : pct / 100)})`;
+    }
+
+    async function consultarProgreso() {
+      try {
+        const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+        const p = await (await fetch('/api/mapa/progreso', { signal: ctl.signal })).json();
+        clearTimeout(t);
+        if (!p.activo || !p.fase) {
+          $('cargaTitulo').textContent = 'Poniéndonos las botas…';
+          $('cargaFase').textContent = 'Preparando la consulta meteorológica';
+          return ponerProgreso(0, true);
+        }
+        const [a, b] = TRAMOS[p.fase] || [0, 100];
+        const frac = p.total ? p.hecho / p.total : 0.5;
+        $('cargaTitulo').textContent = TITULOS[p.fase] || 'Cargando…';
+        $('cargaFase').textContent = p.texto + (p.total ? ` (${p.hecho} de ${p.total})` : '') + '…';
+        ponerProgreso(Math.round(a + (b - a) * frac), false);
+      } catch (_) {
+        // El servidor gratuito de Render se duerme y tarda en despertar: ni el progreso responde
+        $('cargaTitulo').textContent = 'Despertando al servidor…';
+        $('cargaFase').textContent = 'Está dormido cuando nadie lo usa; tarda alrededor de un minuto en arrancar';
+        ponerProgreso(0, true);
+      }
+    }
+
+    function ocultarCarga() {
+      clearInterval(sondeo); clearInterval(chisteT);
+      if ($('carga').hidden) return;
+      $('cargaTitulo').textContent = '¡Listo!';
+      $('cargaFase').textContent = 'Datos meteorológicos cargados';
+      ponerProgreso(100, false);
+      setTimeout(() => { $('carga').classList.add('oculta'); setTimeout(() => $('carga').hidden = true, 500); }, 700);
+    }
+
+    // La nube es interactiva: al tocarla, rayo
+    function lanzarRayo() {
+      const r = $('rayo'), e = $('escena');
+      r.classList.remove('ya'); void r.getBoundingClientRect(); r.classList.add('ya');
+      e.classList.add('destello'); setTimeout(() => e.classList.remove('destello'), 180);
+      $('cargaChiste').textContent = ['¡Zas! Esto no acelera a AEMET, pero mola.', '¡Bum! Tras la tormenta, setas.', '¡Crac! Rayo registrado (no en AEMET).'][Math.floor(Math.random() * 3)];
+    }
+    $('escena').addEventListener('click', lanzarRayo);
+    $('escena').addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); lanzarRayo(); } });
+
+    // ---------- Arranque ----------
     async function cargar() {
       pintarLeyenda();
+      // Solo se enseña la pantalla de carga si la respuesta tarda (con caché es inmediata)
+      const temporizador = setTimeout(mostrarCarga, 700);
       try {
-        const esp = await (await fetch('/api/especies')).json();
-        sel.innerHTML = esp.especies.map(e => `<option value="${e.id}" title="${e.fuentes}">${e.nombre}</option>`).join('');
-        let guardada = null;
-        try { guardada = localStorage.getItem('especie'); } catch (_) {}
-        if (guardada && esp.especies.some(e => e.id === guardada)) sel.value = guardada;
+        catalogo = await (await fetch('/api/especies')).json();
+        sel.innerHTML = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+        const guardada = leer('especie');
+        if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
+        pintarMetodo();
 
-        fetch('/static/burgos.geojson').then(r => r.json()).then(g =>
-          {
-            const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
-            const movil = window.innerWidth <= 600;
-            map.fitBounds(contorno.getBounds(), movil ? { paddingBottomRight: [0, window.innerHeight * 0.45] }
-                                                       : { paddingTopRight: [320, 0], padding: [20, 20] });
-          });
+        fetch('/static/burgos.geojson').then(r => r.json()).then(g => {
+          const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
+          map.fitBounds(contorno.getBounds(), movil() ? { paddingBottomRight: [0, 140] }
+                                                       : { paddingTopRight: [330, 0], padding: [20, 20] });
+        });
 
         const r = await fetch('/api/mapa?provincia=BURGOS');
         if (!r.ok) throw new Error((await r.json()).detail || `Error ${r.status}`);
         datos = await r.json();
         estado.textContent = `Datos hasta ${datos.datos_hasta} · ${datos.celdas.length} celdas de ${datos.paso_grados}° (≈ 8 × 11 km). Pulsa una celda para ver el detalle.`;
-        document.getElementById('fuentes').textContent = 'Fuentes: ' + datos.fuentes.join(' · ');
         pintarEstaciones();
         pintar();
       } catch (err) {
         estado.textContent = 'Error al cargar: ' + err.message;
+        plegar(false, false);
+      } finally {
+        clearTimeout(temporizador);
+        ocultarCarga();
       }
     }
-    sel.addEventListener('change', () => { try { localStorage.setItem('especie', sel.value); } catch (_) {} pintar(); });
+    sel.addEventListener('change', () => { guardar('especie', sel.value); pintar(); pintarMetodo(); });
     ocultarBaja.addEventListener('change', pintar);
     cargar();
   </script>
