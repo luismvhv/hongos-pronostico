@@ -289,37 +289,80 @@ Tampoco hay umbral publicado de helada para el níscalo.
   responde `502 upstream request timeout` a `/api/mapa`. El frontend reintenta cada 5 s (hasta 8 veces)
   ante 502/503/504 o corte de red, manteniendo la pantalla de carga. Verificado en Render: 2 502 reales → carga OK.
 
+## 5f. Botón "Cómo llegar" (nov-2026)
+- En la ventana de cada celda/subcelda: Google Maps, Apple Mapas, Waze; en Android también `geo:`
+  (selector de apps del sistema); "Copiar coordenadas" (Wikiloc, OsmAnd…). Origen = ubicación actual
+  (lo pone la app de navegación; la web no pide permiso de ubicación). Destino = **punto tocado**.
+- Se inyecta en `popupopen` y se fija el nodo con `popup.setContent(nodo)`: llamar a `popup.update()`
+  con contenido-función regenera el HTML y borra lo inyectado (error real encontrado).
+- En móvil, `maxHeight` y `autoPanPadding` según el hueco que deja el panel inferior.
+- Prueba: el HTML local se sirve en Playwright sobre los datos reales de Render (la sesión no puede
+  calcular en local cuando se agota el cupo diario de Open-Meteo de su IP compartida).
+
 ## 6. Hoja de ruta acordada (por fases)
 
-### Fase 1 — Piloto Burgos (EN CURSO)
-1. ✅ Cliente AEMET + estaciones + diarios.
-2. ✅ Verificar `/api/comparar` en Render (añadida cobertura de datos).
-3. ✅ **Integrar Open-Meteo Historical Weather API** (`archive-api.open-meteo.com`, sin clave,
-   reanálisis ERA5/ERA5-Land ~10 km): temperatura, precipitación, **humedad relativa**,
-   **humedad del suelo** (`soil_moisture_*`), quizá ET0. Confirmar nombres de parámetros
-   y condiciones de uso contra su documentación antes de codificar.
-4. ✅ **Validación AEMET vs Open-Meteo** (ver §4c) en las 14 estaciones de Burgos (mismas fechas y coords):
-   - Temperatura: MAE y sesgo. Umbral provisional: MAE < 2 °C → confianza alta.
-   - Lluvia: acierto llovió/no llovió y ratio de acumulados. Umbral provisional: acierto > 75 %.
-   - Si se supera un umbral → confianza media/baja y **mensaje visible** en el mapa
-     ("el modelo diverge de AEMET en esta zona; la estimación es menos fiable").
-   - Ponderación: cerca de una estación AEMET pesa más el dato real; lejos, Open-Meteo
-     con menor confianza. Umbrales provisionales: ajustar con datos reales.
-5. ✅ **Modelo de favorabilidad v0** (ver §5b) por especie (reglas de la literatura): lluvia acumulada en
-   ventanas (7/14/21/30 días), días sin helada, tmin/tmax en rango, humedad del suelo, sol.
-   Salida 0-100 %.
-6. ✅ **Mapa de calor de Burgos** (ver §5c): malla de puntos sobre la provincia, puntuación por punto,
-   capa coloreada en Leaflet, selector de especie, leyenda y aviso de confianza.
+### Fase 1 — Piloto Burgos ✅ (§4-§5d)
+Clientes AEMET y Open-Meteo, validación AEMET vs Open-Meteo, modelo v0, mapa de calor, UX.
 
-### Fase 2 — Capas de terreno (EN CURSO: hábitat Copernicus ✅, ver §5e)
-- **SoilGrids** (ISRIC, `rest.isric.org`): textura, pH, materia orgánica, retención de agua.
-- **Cobertura forestal** de OSM vía Overpass (`landuse=forest`, `natural=wood`, `leaf_type`)
-  para descartar celdas sin bosque y asociar especie ↔ tipo de bosque (pinar ↔ níscalo, etc.).
-  Alternativa: Copernicus Land Monitoring. Altitud/orientación: Copernicus DEM / SRTM.
+### Fase 2 — Hábitat ✅ (§5e)
+Copernicus HRL (coníferas/frondosas/praderas) + DEM en submalla de 2 km; botón "Cómo llegar" (§5f).
+Pendiente de Fase 2, menor: SoilGrids, Mapa Forestal de España (ver Fase 3d).
 
-### Fase 3 — Calibración
-- Partes micológicos oficiales (micocyl.es, Montes de Soria, etc.) para calibrar y validar.
-- Extender a toda Castilla y León y luego a la península.
+### Fase 3 — Fiabilidad: validar contra la realidad (SIGUIENTE, análisis nov-2026)
+
+**Diagnóstico.** El modelo tiene una base meteorológica contrastada (AEMET vs Open-Meteo) y un hábitat
+razonable, pero **nunca se ha comparado con setas reales**: todos los pesos, umbrales y ventanas
+fenológicas son literatura + supuestos. Mientras no se valide, añadir más capas (o más provincias)
+multiplica una salida sin calibrar. Por eso la prioridad es conseguir "verdad terreno", no más predictores.
+
+Orden propuesto (de más a menos valor/esfuerzo):
+
+**3a. Observaciones reales de GBIF (prioridad 1).** GBIF agrega registros de presencia con fecha y
+coordenadas (iNaturalist, Sociedad Micológica Ibérica, Flora Mycologica Iberica, herbarios). Licencias
+CC0 / CC BY / CC BY-NC por registro. API pública sin clave (`api.gbif.org`, **falta añadir el host**).
+*L. deliciosus* tiene taxonKey 5248629; *B. edulis* tiene decenas de miles de registros en Europa.
+- Validar el **hábitat**: ¿caen los registros de cada especie en subceldas con hábitat alto? (AUC, o
+  % de registros con factor ≥ 0,5 frente al % de superficie con ese factor).
+- Calibrar la **fenología**: meses reales de los registros en CyL y norte de España → sustituir las
+  ventanas mensuales supuestas.
+- Validar el **clima**: para cada registro con fecha, calcular el índice climático de ese día con
+  Open-Meteo Historical (hay datos desde 1940) y compararlo con días/lugares sin registro (fondo).
+  Ojo: datos de solo presencia y sesgados hacia zonas visitadas y fines de semana; sirve para ordenar
+  y calibrar, no como probabilidad absoluta.
+- Esfuerzo: medio. Coste en Open-Meteo: moderado (agrupar por celda y fecha; cachear).
+
+**3b. Retrovalidación con los partes de Micocyl (prioridad 2).** Los partes (PDF semanales/quincenales
+en micocyl.es, desde ~2018) describen por provincia si la campaña va bien o mal y traen gráficos de
+producción de parcelas. Extraer a mano o semiautomáticamente una serie ordinal por provincia y semana
+(mala / regular / buena) y comparar con el índice medio de Burgos y Soria recalculado para esas fechas.
+Permite ajustar el objetivo de lluvia, los retardos y la penalización por heladas. Las series de
+parcelas de la Junta no son públicas: valdría la pena **pedírselas a Micocyl** (Martínez Peña, CESEFOR).
+Host necesario: `www.micocyl.es` / `micocyl.es`.
+
+**3c. Pronóstico real a 7-15 días (prioridad 3, mejora de uso).** Hoy el mapa describe el pasado
+(datos hasta ayer). La API de previsión de Open-Meteo (`api.open-meteo.com`, ya permitida) da hasta
+16 días (ECMWF IFS hasta 15) con humedad del suelo. Con ella: "si llueve lo previsto, el níscalo
+mejorará en la semana del…". Debe mostrarse con menor confianza que lo observado. Esfuerzo bajo-medio.
+
+**3d. Nuevos predictores (prioridad 4, tras validar).**
+- **NDVI del año anterior** (Olano et al. 2020: mejor predictor individual, r = 0,41-0,6). CLMS NDVI
+  300 m en Copernicus Data Space (requiere cuenta → network secret) o Sentinel-2 vía AWS.
+- **Mapa Forestal de España** (especie de árbol: *P. sylvestris* / *pinaster* / *nigra*, *Quercus*,
+  haya). Requiere permitir `www.cert.fnmt.es` (certificado intermedio) o las descargas MFE50.
+- **SoilGrids pH** (`rest.isric.org`, ya permitido): Taye et al. 2016 halló más níscalo en suelos ácidos.
+- Altitud y umbría ya están calculadas; activarlas como factor solo si 3a/3b muestran efecto.
+
+**3e. Escalar a otras provincias (después de 3a-3b).** Ver §6.1.
+
+### 6.1 Selector de provincias / regiones (diseño, pendiente)
+- Pantalla inicial con el mapa de CyL (o de España) y las provincias disponibles; se elige una antes de
+  pedir nada a AEMET ni a Open-Meteo. Recordar la última elección; `?provincia=SORIA` en la URL.
+- Backend ya parametrizado por provincia en casi todo (`mapa.CONTORNOS`, `validacion.validar`); falta:
+  contornos de cada provincia (es-atlas los tiene todos), `scripts/habitat_<prov>.py` generalizado,
+  caché y candado por provincia, precálculo en arranque solo de la última pedida.
+- Coste: cada provincia ≈ 150-250 celdas (≈ 500-800 "llamadas" Open-Meteo) + 10-20 estaciones AEMET
+  (≈ 40-60 peticiones). Con el plan gratuito de Render y el límite de 10 000 llamadas/día de
+  Open-Meteo, caben varias provincias al día, pero no las 9 de CyL recalculándose cada 6 h.
 
 ## 7. Forma de trabajar con Luis
 - Responder en español, explicar paso a paso, ser claro sobre qué es riguroso y qué es aproximación.
