@@ -285,6 +285,10 @@ Tampoco hay umbral publicado de helada para el níscalo.
   < 0,1 s), las subceldas sin hábitat quedan transparentes, la confianza del clima va en una capa encima.
   El cálculo clima × hábitat se hace en el navegador con los parámetros de `/api/especies` (una sola fuente).
 
+- **502 de Render en frío**: justo tras un despliegue, mientras se recalcula (~1,5 min), el proxy de Render
+  responde `502 upstream request timeout` a `/api/mapa`. El frontend reintenta cada 5 s (hasta 8 veces)
+  ante 502/503/504 o corte de red, manteniendo la pantalla de carga. Verificado en Render: 2 502 reales → carga OK.
+
 ## 6. Hoja de ruta acordada (por fases)
 
 ### Fase 1 — Piloto Burgos (EN CURSO)
