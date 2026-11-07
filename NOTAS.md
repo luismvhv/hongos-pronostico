@@ -53,15 +53,19 @@ app/
   comparar.py  # resumen comparativo por estación
   openmeteo.py # cliente Open-Meteo Historical (diarios + lluvia 07-07 UTC)
   validacion.py # AEMET vs Open-Meteo: métricas y confianza
+  modelo.py    # índice de favorabilidad v0 por especie
+  mapa.py      # malla de Burgos, fusión AEMET + Open-Meteo, confianza por celda
 static/
-  index.html   # mapa Leaflet (ahora solo pinta estaciones)
+  index.html   # mapa de calor Leaflet (selector de especie, leyenda, confianza)
+  burgos.geojson # contorno provincial (IGN vía es-atlas)
 requirements.txt  .env.example  .gitignore  NOTAS.md
 ```
 
 ### Endpoints
 | Ruta | Estado | Qué hace |
 |---|---|---|
-| `GET /` | ✅ funciona | Mapa Leaflet con las estaciones de CyL |
+| `GET /` | ✅ | Mapa de calor de Burgos por especie |
+| `GET /api/mapa?provincia=BURGOS` | ✅ | Celdas con índice por especie, indicadores, confianza y aviso |
 | `GET /api/estaciones?provincias=BURGOS,SORIA` | ✅ verificado | Inventario AEMET con lat/lon decimales |
 | `GET /api/diarios/{indicativo}?dias=30` | ✅ verificado | Valores diarios: tmed, tmin, tmax, prec, hr, sol |
 | `GET /api/comparar?provincias=BURGOS&dias=21` | ✅ verificado en Render (nov-2026) | Por estación: lluvia acumulada, días con lluvia, heladas (tmin ≤ 0), tmed media, sol medio, **cobertura** (días con dato, último dato, aviso si < 80 %); ordenado por lluvia |
@@ -193,6 +197,28 @@ Tampoco hay umbral publicado de helada para el níscalo.
   falta calibrar con partes reales (Fase 3).
 - Endpoints: `GET /api/especies`, `GET /api/favorabilidad?lat=&lon=` (punto suelto, sin AEMET).
 
+## 5c. Mapa de calor de Burgos (`app/mapa.py`, `GET /api/mapa`, `static/index.html`)
+
+- Malla de **0,1°** (≈ 8 × 11 km, del orden de ECMWF IFS ~9 km): **159 celdas** cuyo centro cae
+  dentro del contorno IGN de Burgos (`static/burgos.geojson`, del paquete npm `es-atlas`, MIT;
+  incluye el enclave de Treviño). Overpass no respondía desde la sesión (reset), por eso se usó npm.
+- Fusión con la estación AEMET validada más cercana, peso k = exp(−d/20 km) (**supuesto**):
+  lluvia diaria k·AEMET + (1−k)·Open-Meteo; temperaturas corregidas por el sesgo de la estación.
+- Confianza por celda: nivel de la estación más cercana; baja un nivel a 15-35 km; > 35 km → baja.
+  Resultado nov-2026: 62 alta, 76 media, 21 baja.
+- Frontend: selector de especie (se recuerda en localStorage), leyenda, aviso de confianza,
+  ventana emergente por celda con el factor limitante y los indicadores, estaciones con su validación.
+- **Color**: NOTAS pedía "verde → rojo", pero rojo-verde es ilegible con daltonismo (deuteranopía).
+  Se usa la rampa secuencial **YlGn** de ColorBrewer (amarillo pálido → verde oscuro, 5 clases de 20):
+  "verde = favorable" se mantiene y la luminosidad es monótona. Confianza baja = **trama rayada**,
+  media = borde discontinuo (no depende solo del color).
+- Rendimiento: ~17 s con la validación ya en caché; ~2 min en frío. Al arrancar el servicio se
+  precalcula en segundo plano (`startup`). Caché de 6 h. ~500 "llamadas" Open-Meteo por cálculo.
+- Pruebas desde la sesión: `unpkg.com` y las teselas de OSM **no están permitidas** en la red de la
+  sesión; en Playwright se sirven Leaflet desde npm y un fondo liso (solo para la prueba local).
+- Primer resultado (7-nov-2026): níscalo con media 19/100 en la provincia (limitado por el agua),
+  máximos ~60 en Las Merindades (norte, más lluvia); la Demanda alta sale a 0 por heladas.
+
 ## 6. Hoja de ruta acordada (por fases)
 
 ### Fase 1 — Piloto Burgos (EN CURSO)
@@ -212,7 +238,7 @@ Tampoco hay umbral publicado de helada para el níscalo.
 5. ✅ **Modelo de favorabilidad v0** (ver §5b) por especie (reglas de la literatura): lluvia acumulada en
    ventanas (7/14/21/30 días), días sin helada, tmin/tmax en rango, humedad del suelo, sol.
    Salida 0-100 %.
-6. ⏭️ **Mapa de calor de Burgos**: malla de puntos sobre la provincia, puntuación por punto,
+6. ✅ **Mapa de calor de Burgos** (ver §5c): malla de puntos sobre la provincia, puntuación por punto,
    capa coloreada en Leaflet, selector de especie, leyenda y aviso de confianza.
 
 ### Fase 2 — Capas de terreno

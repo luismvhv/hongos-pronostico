@@ -3,47 +3,190 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pronóstico de fructificación — piloto AEMET</title>
+  <title>Favorabilidad de setas — Burgos</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; }
-    #map { height: 100%; width: 100%; }
-    #info { position: absolute; top: 10px; right: 10px; z-index: 1000; background: #fff;
-            padding: 10px 12px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-            max-width: 280px; font-size: 14px; }
+    :root { --tinta: #1f1f1d; --tinta2: #55554f; --borde: #d8d6cf; --fondo: #ffffff; --aviso: #fff4d6; --aviso-borde: #e0b23a; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, sans-serif; color: var(--tinta); background: #f4f3ef; }
+    #map { position: absolute; inset: 0; }
+    #panel { position: absolute; top: 10px; right: 10px; z-index: 1000; background: var(--fondo);
+             padding: 12px 14px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.25);
+             width: 300px; max-height: calc(100% - 40px); overflow: auto; font-size: 14px; line-height: 1.35; }
+    #panel h1 { font-size: 16px; margin: 0 0 6px; }
+    #panel label { font-size: 13px; color: var(--tinta2); display: block; margin: 8px 0 4px; }
+    select { width: 100%; font-size: 14px; padding: 4px; }
+    .leyenda { margin-top: 10px; }
+    .fila { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 13px; }
+    .caja { width: 22px; height: 14px; border: 1px solid #9a9890; flex: none; }
+    .trama { background: repeating-linear-gradient(45deg, #ffffff 0 3px, #8a8880 3px 4px); }
+    .aviso { background: var(--aviso); border-left: 4px solid var(--aviso-borde); padding: 6px 8px; margin-top: 10px; font-size: 13px; }
+    .nota { font-size: 12px; color: var(--tinta2); margin-top: 10px; }
+    .estado { font-size: 13px; color: var(--tinta2); margin-top: 8px; }
+    .popup td { padding: 1px 6px 1px 0; font-size: 12px; vertical-align: top; }
+    .popup b { font-size: 13px; }
+    @media (max-width: 600px) {
+      #panel { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 45%; }
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div id="info">Cargando estaciones de Castilla y León…</div>
+  <div id="panel">
+    <h1>Favorabilidad climática de setas · Burgos</h1>
+    <label for="especie">Especie</label>
+    <select id="especie"></select>
+    <label><input type="checkbox" id="ocultarBaja"> Ocultar celdas de confianza baja</label>
+
+    <div class="leyenda" id="leyenda"></div>
+    <div class="aviso" id="avisoConfianza" hidden></div>
+    <div class="estado" id="estado">Cargando… la primera carga del día puede tardar 1-2 minutos (se consultan AEMET y Open-Meteo).</div>
+    <div class="nota">
+      Índice 0-100 de lo favorable que ha sido el tiempo reciente (lluvia, humedad del suelo, temperatura,
+      heladas y época). <b>No es una probabilidad</b> ni garantiza setas: no tiene en cuenta todavía el
+      bosque, el suelo ni la orientación. Modelo v0 sin calibrar.
+    </div>
+    <div class="nota" id="fuentes"></div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([41.65, -4.0], 7);
+    // Rampa secuencial YlGn (ColorBrewer, 5 clases): luminosidad monótona, apta para daltonismo.
+    const CLASES = [
+      { max: 20,  color: '#ffffcc', texto: '0-19 · muy desfavorable' },
+      { max: 40,  color: '#c2e699', texto: '20-39 · desfavorable' },
+      { max: 60,  color: '#78c679', texto: '40-59 · intermedio' },
+      { max: 80,  color: '#31a354', texto: '60-79 · favorable' },
+      { max: 101, color: '#006837', texto: '80-100 · muy favorable' },
+    ];
+    const NOMBRE_FACTOR = { fenologia: 'época del año', agua: 'falta de agua', temperatura: 'temperatura',
+                            heladas: 'heladas', calor: 'golpe de calor' };
+    const colorDe = v => CLASES.find(c => v < c.max).color;
+
+    const map = L.map('map', { renderer: L.svg() }).setView([42.35, -3.7], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+    map.createPane('estaciones').style.zIndex = 650;  // por encima de las celdas
 
-    const info = document.getElementById('info');
-    // Provincias de Castilla y León (filtro para el piloto)
-    const provincias = 'BURGOS,SORIA,PALENCIA,VALLADOLID,SEGOVIA,AVILA,ZAMORA,LEON,SALAMANCA';
+    // Trama rayada (SVG) para marcar confianza baja sin depender solo del color
+    function crearTrama() {
+      const svg = map.getRenderer(map)._container;
+      if (!svg || svg.querySelector('#trama-baja')) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      const defs = document.createElementNS(ns, 'defs');
+      defs.innerHTML = '<pattern id="trama-baja" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">' +
+                       '<line x1="0" y1="0" x2="0" y2="6" stroke="#55554f" stroke-width="1.2" stroke-opacity="0.55"/></pattern>';
+      svg.prepend(defs);
+    }
 
-    async function cargarEstaciones() {
+    const sel = document.getElementById('especie');
+    const estado = document.getElementById('estado');
+    const avisoConf = document.getElementById('avisoConfianza');
+    const ocultarBaja = document.getElementById('ocultarBaja');
+    let datos = null, capa = L.layerGroup().addTo(map), capaTrama = L.layerGroup().addTo(map), capaEst = L.layerGroup().addTo(map);
+
+    function pintarLeyenda() {
+      document.getElementById('leyenda').innerHTML =
+        CLASES.map(c => `<div class="fila"><span class="caja" style="background:${c.color}"></span>${c.texto}</div>`).join('') +
+        `<div class="fila"><span class="caja trama"></span>Confianza baja (rayado)</div>` +
+        `<div class="fila"><span class="caja" style="border:2px dashed #55554f;background:none"></span>Confianza media (borde discontinuo)</div>` +
+        `<div class="fila"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1f1f1d;border:2px solid #fff;box-shadow:0 0 0 1px #1f1f1d"></span>Estación AEMET</div>`;
+    }
+
+    function popupCelda(c, sp) {
+      const e = c.especies[sp], i = c.indicadores;
+      const f = Object.entries(e.factores).map(([k, v]) => `${NOMBRE_FACTOR[k] || k}: ${v.toFixed(2)}`).join(' · ');
+      return `<div class="popup"><b>${e.indice} / 100</b> — ${sel.selectedOptions[0].text}<br>
+        Factor limitante: <b>${NOMBRE_FACTOR[e.limitante] || e.limitante}</b><br><span style="color:#55554f">${f}</span>
+        <table>
+          <tr><td>Lluvia 7 / 30 días</td><td>${i.lluvia_7} / ${i.lluvia_30} mm</td></tr>
+          <tr><td>Balance lluvia − ET0 (30 d)</td><td>${i.balance_30} mm</td></tr>
+          <tr><td>Humedad del suelo (7 d)</td><td>${i.suelo_7d ?? '—'} m³/m³</td></tr>
+          <tr><td>Heladas (10 d)</td><td>${i.heladas_10} (fuertes: ${i.heladas_fuertes_10}), mín. ${i.tmin_10 ?? '—'} °C</td></tr>
+          <tr><td>Altitud</td><td>${c.elevacion ?? '—'} m</td></tr>
+          <tr><td>Estación AEMET</td><td>${c.estacion ?? '—'} (${c.dist_km ?? '—'} km, peso ${c.peso_aemet})</td></tr>
+          <tr><td>Confianza</td><td><b>${c.confianza}</b></td></tr>
+        </table>${c.aviso ? `<div class="aviso">${c.aviso}</div>` : ''}</div>`;
+    }
+
+    function pintar() {
+      if (!datos) return;
+      const sp = sel.value, h = datos.paso_grados / 2;
+      capa.clearLayers(); capaTrama.clearLayers();
+      let n = { alta: 0, media: 0, baja: 0 };
+      datos.celdas.forEach(c => {
+        n[c.confianza]++;
+        if (ocultarBaja.checked && c.confianza === 'baja') return;
+        const b = [[c.lat - h, c.lon - h], [c.lat + h, c.lon + h]];
+        const v = c.especies[sp].indice;
+        const r = L.rectangle(b, {
+          color: c.confianza === 'media' ? '#55554f' : '#ffffff',
+          weight: c.confianza === 'media' ? 1.5 : 0.5,
+          dashArray: c.confianza === 'media' ? '4 3' : null,
+          fillColor: colorDe(v), fillOpacity: 0.75,
+        }).bindTooltip(`${v}/100 · confianza ${c.confianza}`, { sticky: true })
+          .bindPopup(() => popupCelda(c, sp), { maxWidth: 320 });
+        capa.addLayer(r);
+        if (c.confianza === 'baja') {
+          capaTrama.addLayer(L.rectangle(b, { stroke: false, fillColor: 'url(#trama-baja)', fillOpacity: 1, interactive: false }));
+        }
+      });
+      crearTrama();
+      capaTrama.eachLayer(l => l._path && l._path.setAttribute('fill', 'url(#trama-baja)'));
+
+      const total = datos.celdas.length;
+      const partes = [];
+      if (datos.aviso_global) partes.push(datos.aviso_global);
+      if (n.media + n.baja > 0) {
+        partes.push(`Confianza: ${n.alta} celdas alta, ${n.media} media, ${n.baja} baja (de ${total}). ` +
+          `En las celdas con trama o borde discontinuo, el modelo meteorológico diverge de AEMET o no hay estación cerca: la estimación es menos fiable.`);
+      }
+      avisoConf.hidden = partes.length === 0;
+      avisoConf.innerHTML = partes.join('<br>');
+    }
+
+    function pintarEstaciones() {
+      capaEst.clearLayers();
+      datos.estaciones.forEach(e => {
+        const m = (e.motivos || []).length ? `<br>Motivos: ${e.motivos.join('; ')}` : '';
+        L.circleMarker([e.lat, e.lon], { pane: 'estaciones', radius: 5, color: '#ffffff', weight: 2, fillColor: '#1f1f1d', fillOpacity: 1 })
+          .bindTooltip(`${e.nombre} · validación: ${e.confianza}`)
+          .bindPopup(`<b>${e.nombre}</b> (${e.indicativo})<br>${e.altitud ?? '?'} m<br>Validación AEMET vs Open-Meteo: <b>${e.confianza}</b>${m}`)
+          .addTo(capaEst);
+      });
+    }
+
+    async function cargar() {
+      pintarLeyenda();
       try {
-        const r = await fetch(`/api/estaciones?provincias=${provincias}`);
-        if (!r.ok) throw new Error((await r.json()).detail || 'Error al cargar estaciones');
-        const { total, estaciones } = await r.json();
-        estaciones.forEach(e => {
-          L.circleMarker([e.lat, e.lon], { radius: 5 })
-            .bindPopup(`<b>${e.nombre}</b><br>${e.provincia} · ${e.altitud ?? '?'} m<br>Indicativo: ${e.indicativo}`)
-            .addTo(map);
-        });
-        info.textContent = `${total} estaciones cargadas. Pulsa una para ver su código.`;
+        const esp = await (await fetch('/api/especies')).json();
+        sel.innerHTML = esp.especies.map(e => `<option value="${e.id}" title="${e.fuentes}">${e.nombre}</option>`).join('');
+        let guardada = null;
+        try { guardada = localStorage.getItem('especie'); } catch (_) {}
+        if (guardada && esp.especies.some(e => e.id === guardada)) sel.value = guardada;
+
+        fetch('/static/burgos.geojson').then(r => r.json()).then(g =>
+          {
+            const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
+            const movil = window.innerWidth <= 600;
+            map.fitBounds(contorno.getBounds(), movil ? { paddingBottomRight: [0, window.innerHeight * 0.45] }
+                                                       : { paddingTopRight: [320, 0], padding: [20, 20] });
+          });
+
+        const r = await fetch('/api/mapa?provincia=BURGOS');
+        if (!r.ok) throw new Error((await r.json()).detail || `Error ${r.status}`);
+        datos = await r.json();
+        estado.textContent = `Datos hasta ${datos.datos_hasta} · ${datos.celdas.length} celdas de ${datos.paso_grados}° (≈ 8 × 11 km). Pulsa una celda para ver el detalle.`;
+        document.getElementById('fuentes').textContent = 'Fuentes: ' + datos.fuentes.join(' · ');
+        pintarEstaciones();
+        pintar();
       } catch (err) {
-        info.textContent = 'Error: ' + err.message;
+        estado.textContent = 'Error al cargar: ' + err.message;
       }
     }
-    cargarEstaciones();
+    sel.addEventListener('change', () => { try { localStorage.setItem('especie', sel.value); } catch (_) {} pintar(); });
+    ocultarBaja.addEventListener('change', pintar);
+    cargar();
   </script>
 </body>
 </html>

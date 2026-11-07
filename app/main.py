@@ -9,6 +9,7 @@ from app import aemet
 from app import openmeteo
 from app import validacion
 from app import modelo
+from app import mapa
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -122,3 +123,28 @@ async def favorabilidad(
         raise HTTPException(status_code=502, detail=str(e))
     return {"lat": lat, "lon": lon, "hasta": fin.isoformat(), "fuente": openmeteo.ATRIBUCION,
             **modelo.puntuar_todas(res[0]["valores"])}
+
+
+@app.get("/api/mapa")
+async def mapa_endpoint(provincia: str = Query("BURGOS")):
+    """Malla de favorabilidad por especie con confianza por celda (la primera vez tarda ~2 min)."""
+    prov = provincia.strip().upper()
+    if prov not in mapa.CONTORNOS:
+        raise HTTPException(status_code=404, detail=f"Provincia no disponible todavía: {prov}")
+    try:
+        return await mapa.calcular(prov)
+    except openmeteo.OpenMeteoError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.on_event("startup")
+async def precalentar():
+    """Al arrancar (Render despierta el servicio), calcula el mapa en segundo plano."""
+    import asyncio
+
+    async def _tarea():
+        try:
+            await mapa.calcular("BURGOS")
+        except Exception:
+            pass  # se reintentará en la primera petición
+    asyncio.create_task(_tarea())
