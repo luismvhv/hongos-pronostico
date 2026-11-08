@@ -424,6 +424,45 @@ mejorará en la semana del…". Debe mostrarse con menor confianza que lo observ
   (≈ 40-60 peticiones). Con el plan gratuito de Render y el límite de 10 000 llamadas/día de
   Open-Meteo, caben varias provincias al día, pero no las 9 de CyL recalculándose cada 6 h.
 
+### 6.2 Propuesta (nov-2026): GBIF completo, Micocyl y todas las setas recolectables de Burgos
+
+**GBIF con cuenta.** La cuenta NO da más registros que la API pública (las coordenadas ocultadas por
+iNaturalist siguen ocultas): da **descargas masivas asíncronas sin límite** y un **DOI** para citar.
+Dos vías: (a) Luis hace la descarga en gbif.org con los filtros indicados y pega en el chat el enlace o
+el DOI (no es secreto); el zip es público (`api.gbif.org/v1/occurrence/download/request/<clave>.zip`,
+puede redirigir a otro host que habría que permitir). (b) Usuario/contraseña de GBIF como network secret
+(Basic) para `api.gbif.org` con `request_credential`; Claude lanza `POST /v1/occurrence/download/request`
+con un predicado. Región: Fungi (taxonKey 5), ES, lat 40-43,3, lon −7,1 a −1,7, 2000-2026, con
+coordenadas y sin problemas geoespaciales → **161 055 registros, ~2 000 especies** (26 557 en Burgos).
+
+**Micocyl.** No hay API ni cuenta: los partes son PDF públicos en `micocyl.es` / `www.micocyl.es`
+(hay que permitir esos hosts). Plan: listar y descargar los partes, extraer texto (pdftotext),
+codificar a mano o semiautomáticamente una serie ordinal por provincia y quincena (mala/regular/buena)
+y compararla con el índice recalculado. Las series de producción de parcelas no son públicas: pedirlas
+por correo a Micocyl/Cesefor. Además, IDECyL publica gratis "Micología CyL: zonas reguladas"
+(shapefile de acotados y parques micológicos, `idecyl.jcyl.es`): útil para avisar en el mapa de dónde
+hace falta permiso.
+
+**Todas las setas recolectables.** Especies comestibles con ≥ 70 registros en CyL ampliada (2000-2026),
+por temporada según el reparto mensual real de GBIF:
+- Final de invierno: *Hygrophorus marzuolus* (feb-abr, 90; Burgos 19), *Flammulina velutipes* (nov-feb).
+- Primavera: *Morchella esculenta* (abr 71 %), *Calocybe gambosa* (abr-may, 175; Burgos 50),
+  *Marasmius oreades*, *Pleurotus eryngii*, *Coprinus comatus*, *Boletus pinophilus* (may-jun y otoño).
+- Verano: *Boletus reticulatus* (may-jul), *B. aereus*, *Russula virescens*, *R. cyanoxantha*,
+  *Cantharellus cibarius* (jun-jul y otoño), *Amanita caesarea* (jun y sep-oct).
+- Otoño: *Macrolepiota procera* (989), *Lactarius deliciosus*, *Boletus edulis*, *Suillus luteus*,
+  *Agaricus campestris*, *Hydnum repandum*, *Craterellus cornucopioides*, *Pleurotus ostreatus*.
+- Otoño tardío-invierno: *Lepista nuda*, *Tricholoma terreum*, *T. portentosum*, *Clitocybe geotropa*,
+  *Hygrophorus russula*, *Craterellus lutescens*, *C. tubaeformis*, *Lepista personata/panaeola*.
+- Excluir: *Tricholoma equestre* (tóxica, rabdomiólisis; no comercializable). Pocas observaciones:
+  *Lactarius sanguifluus*, *Hygrophorus latitabundus*, trufas, *Terfezia*.
+Diseño: perfiles generados a partir de los datos (temporada = meses de GBIF; hábitat = asociación
+medida con Copernicus), clima por **grupo funcional** (micorrícico de pino, de frondosas, saprótrofo de
+pradera, de madera, primaveral) para tener muestra suficiente, y **aviso de confusiones peligrosas**
+por especie (p. ej. champiñón ↔ *Amanita* blancas mortales, perretxiko ↔ *Entoloma sinuatum* e
+*Inocybe*, senderuela ↔ *Clitocybe* blancas, colmenilla ↔ *Gyromitra*, rebozuelo ↔ *Omphalotus*,
+parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar setas.
+
 ## 7. Forma de trabajar con Luis
 - Responder en español, explicar paso a paso, ser claro sobre qué es riguroso y qué es aproximación.
 - Prefiere avanzar rápido y que Claude cierre el ciclo de feedback por sí mismo
