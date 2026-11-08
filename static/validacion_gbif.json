@@ -1,0 +1,628 @@
+{
+ "fecha": "2026-11-08",
+ "region": "Castilla y León ampliada (lat 40-43,3; lon −7,1 a −1,7), España, 2000-2026",
+ "registros": 2117,
+ "registros_habitat": 986,
+ "origen": [
+  [
+   "8a863029-f435-446a-821e-275f4f641165",
+   929
+  ],
+  [
+   "iNaturalist research-grade observations",
+   922
+  ],
+  [
+   "Fungal occurrences from the Basque Country and neighbouring areas: ARAN-Fungi",
+   159
+  ],
+  [
+   "SIM-Fungal occurrences compiled by the Iberian Mycological Society",
+   30
+  ],
+  [
+   "CSIC-Real Jardín Botánico-Colección de Hongos (MA-Fungi)",
+   26
+  ],
+  [
+   "Herbario de la Sociedad Micológica Barakaldo Mikologia Elkartea",
+   20
+  ],
+  [
+   "95ca5a80-f762-11e1-a439-00145eb45e9a",
+   16
+  ],
+  [
+   "5f442679-017d-4d99-8b81-2444d79321c8",
+   4
+  ]
+ ],
+ "licencias": [
+  [
+   "http://creativecommons.org/licenses/by-nc/4.0/legalcode",
+   2029
+  ],
+  [
+   "http://creativecommons.org/licenses/by/4.0/legalcode",
+   83
+  ],
+  [
+   "http://creativecommons.org/publicdomain/zero/1.0/legalcode",
+   5
+  ]
+ ],
+ "habitat": {
+  "lactarius_deliciosus": {
+   "n": 213,
+   "auc_vs_territorio": 0.804,
+   "auc_vs_otras_setas": 0.749,
+   "habitat_medio": {
+    "hallazgos": 0.68,
+    "territorio": 0.228,
+    "otras_setas": 0.308
+   },
+   "pct_hallazgos_sin_habitat": 10.8,
+   "pct_territorio_sin_habitat": 55.4,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.341,
+     "territorio": 0.098,
+     "vs_territorio": 3.48,
+     "vs_otras_setas": 2.6
+    },
+    "frondosa": {
+     "hallazgos": 0.249,
+     "territorio": 0.199,
+     "vs_territorio": 1.25,
+     "vs_otras_setas": 0.73
+    },
+    "pradera": {
+     "hallazgos": 0.107,
+     "territorio": 0.159,
+     "vs_territorio": 0.68,
+     "vs_otras_setas": 0.54
+    }
+   }
+  },
+  "boletus_edulis": {
+   "n": 171,
+   "auc_vs_territorio": 0.802,
+   "auc_vs_otras_setas": 0.689,
+   "habitat_medio": {
+    "hallazgos": 0.861,
+    "territorio": 0.436,
+    "otras_setas": 0.634
+   },
+   "pct_hallazgos_sin_habitat": 1.8,
+   "pct_territorio_sin_habitat": 26.4,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.196,
+     "territorio": 0.098,
+     "vs_territorio": 2.0,
+     "vs_otras_setas": 1.14
+    },
+    "frondosa": {
+     "hallazgos": 0.491,
+     "territorio": 0.199,
+     "vs_territorio": 2.46,
+     "vs_otras_setas": 1.72
+    },
+    "pradera": {
+     "hallazgos": 0.127,
+     "territorio": 0.159,
+     "vs_territorio": 0.8,
+     "vs_otras_setas": 0.66
+    }
+   }
+  },
+  "amanita_caesarea": {
+   "n": 81,
+   "auc_vs_territorio": 0.771,
+   "auc_vs_otras_setas": 0.665,
+   "habitat_medio": {
+    "hallazgos": 0.719,
+    "territorio": 0.353,
+    "otras_setas": 0.517
+   },
+   "pct_hallazgos_sin_habitat": 3.7,
+   "pct_territorio_sin_habitat": 30.6,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.086,
+     "territorio": 0.098,
+     "vs_territorio": 0.87,
+     "vs_otras_setas": 0.46
+    },
+    "frondosa": {
+     "hallazgos": 0.466,
+     "territorio": 0.199,
+     "vs_territorio": 2.34,
+     "vs_otras_setas": 1.52
+    },
+    "pradera": {
+     "hallazgos": 0.171,
+     "territorio": 0.159,
+     "vs_territorio": 1.07,
+     "vs_otras_setas": 0.94
+    }
+   }
+  },
+  "pleurotus_eryngii": {
+   "n": 107,
+   "auc_vs_territorio": 0.661,
+   "auc_vs_otras_setas": 0.641,
+   "habitat_medio": {
+    "hallazgos": 0.656,
+    "territorio": 0.455,
+    "otras_setas": 0.48
+   },
+   "pct_hallazgos_sin_habitat": 1.9,
+   "pct_territorio_sin_habitat": 8.3,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.08,
+     "territorio": 0.098,
+     "vs_territorio": 0.82,
+     "vs_otras_setas": 0.43
+    },
+    "frondosa": {
+     "hallazgos": 0.166,
+     "territorio": 0.199,
+     "vs_territorio": 0.83,
+     "vs_otras_setas": 0.49
+    },
+    "pradera": {
+     "hallazgos": 0.262,
+     "territorio": 0.159,
+     "vs_territorio": 1.65,
+     "vs_otras_setas": 1.54
+    }
+   }
+  },
+  "tricholoma_terreum": {
+   "n": 141,
+   "auc_vs_territorio": 0.7,
+   "auc_vs_otras_setas": 0.567,
+   "habitat_medio": {
+    "hallazgos": 0.512,
+    "territorio": 0.27,
+    "otras_setas": 0.441
+   },
+   "pct_hallazgos_sin_habitat": 14.2,
+   "pct_territorio_sin_habitat": 51.1,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.185,
+     "territorio": 0.098,
+     "vs_territorio": 1.89,
+     "vs_otras_setas": 1.06
+    },
+    "frondosa": {
+     "hallazgos": 0.292,
+     "territorio": 0.199,
+     "vs_territorio": 1.46,
+     "vs_otras_setas": 0.9
+    },
+    "pradera": {
+     "hallazgos": 0.141,
+     "territorio": 0.159,
+     "vs_territorio": 0.89,
+     "vs_otras_setas": 0.76
+    }
+   }
+  },
+  "cantharellus_lutescens": {
+   "n": 34,
+   "auc_vs_territorio": 0.777,
+   "auc_vs_otras_setas": 0.644,
+   "habitat_medio": {
+    "hallazgos": 0.644,
+    "territorio": 0.27,
+    "otras_setas": 0.444
+   },
+   "pct_hallazgos_sin_habitat": 8.8,
+   "pct_territorio_sin_habitat": 51.1,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.182,
+     "territorio": 0.098,
+     "vs_territorio": 1.86,
+     "vs_otras_setas": 1.03
+    },
+    "frondosa": {
+     "hallazgos": 0.361,
+     "territorio": 0.199,
+     "vs_territorio": 1.81,
+     "vs_otras_setas": 1.13
+    },
+    "pradera": {
+     "hallazgos": 0.147,
+     "territorio": 0.159,
+     "vs_territorio": 0.93,
+     "vs_otras_setas": 0.81
+    }
+   }
+  },
+  "marasmius_oreades": {
+   "n": 239,
+   "auc_vs_territorio": 0.7,
+   "auc_vs_otras_setas": 0.714,
+   "habitat_medio": {
+    "hallazgos": 0.698,
+    "territorio": 0.455,
+    "otras_setas": 0.435
+   },
+   "pct_hallazgos_sin_habitat": 1.3,
+   "pct_territorio_sin_habitat": 8.3,
+   "composicion": {
+    "conifera": {
+     "hallazgos": 0.084,
+     "territorio": 0.098,
+     "vs_territorio": 0.86,
+     "vs_otras_setas": 0.41
+    },
+    "frondosa": {
+     "hallazgos": 0.293,
+     "territorio": 0.199,
+     "vs_territorio": 1.47,
+     "vs_otras_setas": 0.89
+    },
+    "pradera": {
+     "hallazgos": 0.278,
+     "territorio": 0.159,
+     "vs_territorio": 1.75,
+     "vs_otras_setas": 1.86
+    }
+   }
+  }
+ },
+ "fenologia": {
+  "lactarius_deliciosus": {
+   "n": 428,
+   "reparto_real": {
+    "1": 0.026,
+    "2": 0.0,
+    "3": 0.002,
+    "4": 0.002,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.002,
+    "8": 0.0,
+    "9": 0.033,
+    "10": 0.313,
+    "11": 0.409,
+    "12": 0.213
+   },
+   "reparto_modelo": {
+    "1": 0.025,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.033,
+    "10": 0.317,
+    "11": 0.412,
+    "12": 0.214
+   },
+   "pct_fuera_de_temporada_modelo": 0.7,
+   "solapamiento": 0.993
+  },
+  "boletus_edulis": {
+   "n": 395,
+   "reparto_real": {
+    "1": 0.005,
+    "2": 0.003,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.003,
+    "6": 0.015,
+    "7": 0.018,
+    "8": 0.003,
+    "9": 0.175,
+    "10": 0.504,
+    "11": 0.246,
+    "12": 0.03
+   },
+   "reparto_modelo": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.02,
+    "7": 0.02,
+    "8": 0.0,
+    "9": 0.177,
+    "10": 0.505,
+    "11": 0.247,
+    "12": 0.03
+   },
+   "pct_fuera_de_temporada_modelo": 1.3,
+   "solapamiento": 0.988
+  },
+  "amanita_caesarea": {
+   "n": 164,
+   "reparto_real": {
+    "1": 0.006,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.006,
+    "5": 0.012,
+    "6": 0.116,
+    "7": 0.073,
+    "8": 0.03,
+    "9": 0.354,
+    "10": 0.329,
+    "11": 0.073,
+    "12": 0.0
+   },
+   "reparto_modelo": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.12,
+    "7": 0.076,
+    "8": 0.029,
+    "9": 0.362,
+    "10": 0.337,
+    "11": 0.076,
+    "12": 0.0
+   },
+   "pct_fuera_de_temporada_modelo": 2.4,
+   "solapamiento": 0.974
+  },
+  "pleurotus_eryngii": {
+   "n": 280,
+   "reparto_real": {
+    "1": 0.018,
+    "2": 0.014,
+    "3": 0.025,
+    "4": 0.082,
+    "5": 0.114,
+    "6": 0.021,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.043,
+    "10": 0.207,
+    "11": 0.361,
+    "12": 0.114
+   },
+   "reparto_modelo": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.026,
+    "4": 0.086,
+    "5": 0.119,
+    "6": 0.022,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.045,
+    "10": 0.212,
+    "11": 0.372,
+    "12": 0.119
+   },
+   "pct_fuera_de_temporada_modelo": 3.2,
+   "solapamiento": 0.967
+  },
+  "tricholoma_terreum": {
+   "n": 260,
+   "reparto_real": {
+    "1": 0.077,
+    "2": 0.008,
+    "3": 0.015,
+    "4": 0.008,
+    "5": 0.008,
+    "6": 0.0,
+    "7": 0.004,
+    "8": 0.0,
+    "9": 0.004,
+    "10": 0.196,
+    "11": 0.435,
+    "12": 0.246
+   },
+   "reparto_modelo": {
+    "1": 0.082,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.0,
+    "10": 0.205,
+    "11": 0.455,
+    "12": 0.259
+   },
+   "pct_fuera_de_temporada_modelo": 4.6,
+   "solapamiento": 0.954
+  },
+  "cantharellus_lutescens": {
+   "n": 68,
+   "reparto_real": {
+    "1": 0.074,
+    "2": 0.044,
+    "3": 0.015,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.015,
+    "7": 0.0,
+    "8": 0.044,
+    "9": 0.074,
+    "10": 0.206,
+    "11": 0.353,
+    "12": 0.176
+   },
+   "reparto_modelo": {
+    "1": 0.077,
+    "2": 0.044,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "8": 0.044,
+    "9": 0.077,
+    "10": 0.212,
+    "11": 0.365,
+    "12": 0.182
+   },
+   "pct_fuera_de_temporada_modelo": 2.9,
+   "solapamiento": 0.971
+  },
+  "marasmius_oreades": {
+   "n": 522,
+   "reparto_real": {
+    "1": 0.004,
+    "2": 0.002,
+    "3": 0.013,
+    "4": 0.102,
+    "5": 0.207,
+    "6": 0.063,
+    "7": 0.015,
+    "8": 0.017,
+    "9": 0.071,
+    "10": 0.167,
+    "11": 0.293,
+    "12": 0.046
+   },
+   "reparto_modelo": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.108,
+    "5": 0.218,
+    "6": 0.068,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.074,
+    "10": 0.175,
+    "11": 0.308,
+    "12": 0.049
+   },
+   "pct_fuera_de_temporada_modelo": 5.2,
+   "solapamiento": 0.949
+  }
+ },
+ "clima": {
+  "lactarius_deliciosus": {
+   "n_hallazgos": 50,
+   "n_pares": 100,
+   "gana_hallazgo_pct": 59.1,
+   "empates": 12,
+   "p_signos": 0.0881,
+   "indice_medio": {
+    "hallazgo": 56.4,
+    "control": 47.4
+   },
+   "factores_gana_hallazgo_pct": {
+    "agua": 56.0,
+    "temperatura": 73.7,
+    "heladas": 72.4
+   }
+  },
+  "boletus_edulis": {
+   "n_hallazgos": 50,
+   "n_pares": 100,
+   "gana_hallazgo_pct": 55.4,
+   "empates": 8,
+   "p_signos": 0.2971,
+   "indice_medio": {
+    "hallazgo": 37.1,
+    "control": 37.4
+   },
+   "factores_gana_hallazgo_pct": {
+    "agua": 65.2,
+    "temperatura": 49.3,
+    "heladas": 50.0
+   }
+  },
+  "amanita_caesarea": {
+   "n_hallazgos": 50,
+   "n_pares": 98,
+   "gana_hallazgo_pct": 73.6,
+   "empates": 11,
+   "p_signos": 0.0,
+   "indice_medio": {
+    "hallazgo": 47.7,
+    "control": 33.6
+   },
+   "factores_gana_hallazgo_pct": {
+    "agua": 73.0,
+    "temperatura": 48.4,
+    "heladas": 50.0
+   }
+  },
+  "pleurotus_eryngii": {
+   "n_hallazgos": 50,
+   "n_pares": 100,
+   "gana_hallazgo_pct": 51.8,
+   "empates": 15,
+   "p_signos": 0.7449,
+   "indice_medio": {
+    "hallazgo": 46.9,
+    "control": 46.3
+   },
+   "factores_gana_hallazgo_pct": {
+    "temperatura": 56.1,
+    "agua": 57.1,
+    "heladas": 44.4
+   }
+  },
+  "tricholoma_terreum": {
+   "n_hallazgos": 50,
+   "n_pares": 99,
+   "gana_hallazgo_pct": 52.7,
+   "empates": 8,
+   "p_signos": 0.6002,
+   "indice_medio": {
+    "hallazgo": 59.0,
+    "control": 54.7
+   },
+   "factores_gana_hallazgo_pct": {
+    "temperatura": 53.3,
+    "agua": 59.0,
+    "heladas": 45.5
+   }
+  },
+  "cantharellus_lutescens": {
+   "n_hallazgos": 50,
+   "n_pares": 100,
+   "gana_hallazgo_pct": 46.7,
+   "empates": 8,
+   "p_signos": 0.5316,
+   "indice_medio": {
+    "hallazgo": 39.9,
+    "control": 37.9
+   },
+   "factores_gana_hallazgo_pct": {
+    "agua": 46.4,
+    "temperatura": 50.0,
+    "heladas": 53.5
+   }
+  },
+  "marasmius_oreades": {
+   "n_hallazgos": 50,
+   "n_pares": 100,
+   "gana_hallazgo_pct": 65.9,
+   "empates": 12,
+   "p_signos": 0.0028,
+   "indice_medio": {
+    "hallazgo": 36.7,
+    "control": 31.7
+   },
+   "factores_gana_hallazgo_pct": {
+    "agua": 66.7,
+    "temperatura": 42.6,
+    "heladas": 77.3
+   }
+  }
+ },
+ "fuente": "GBIF.org, búsqueda por API (occurrence/search), consultada el 2026-11-08"
+}

@@ -68,6 +68,15 @@
 
     .popup td { padding: 1px 6px 1px 0; font-size: 12px; vertical-align: top; }
     .popup b { font-size: 13px; }
+    .fiab { margin-top: 8px; font-size: 12.5px; line-height: 1.4; }
+    .fiab .t { color: var(--tinta2); }
+    .fiab .marca { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .fiab .ic { display: inline-flex; width: 15px; height: 15px; border-radius: 50%; align-items: center; justify-content: center;
+                font-size: 10px; font-weight: 700; color: #fff; }
+    .ic.si { background: #0ca30c; } .ic.medio { background: #e8930c; } .ic.no { background: #8a8880; }
+    .fiab .nota-clima { margin-top: 4px; color: var(--tinta2); }
+    table.val { border-collapse: collapse; font-size: 12px; margin: 4px 0; }
+    table.val td { padding: 2px 6px 2px 0; vertical-align: top; }
     .ruta { margin: 8px 0 6px; }
     .btn-ruta { width: 100%; border: none; border-radius: 8px; background: var(--verde-osc); color: #fff; font-size: 14px;
                 font-weight: 600; padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -142,6 +151,7 @@
       <label><input type="radio" name="capa" value="habitat" checked> Clima + hábitat</label>
       <label><input type="radio" name="capa" value="clima"> Solo clima</label>
     </div>
+    <div class="fiab" id="fiabilidad"></div>
 
     <div id="mini" hidden>
       <div class="rampa" id="miniRampa"></div>
@@ -170,6 +180,9 @@
         <div class="supuesto" id="supuestosEspecie"></div>
         <h3>Fuentes generales (agua y calor, todas las especies)</h3>
         <ul class="fuentes" id="fuentesGenerales"></ul>
+        <h3>Validación con hallazgos reales (GBIF)</h3>
+        <div id="validacionEspecie" class="nota" style="margin-top:0"></div>
+        <ul class="fuentes" id="fuentesValidacion"></ul>
         <h3>Hábitat (Copernicus)</h3>
         <ul class="fuentes" id="fuentesHabitat"></ul>
         <h3>Datos meteorológicos y cartografía</h3>
@@ -286,16 +299,45 @@
     const itemFuente = f => `<li><span class="tipo ${f.tipo}">${TIPOS[f.tipo] || f.tipo}</span>` +
       `<a href="${f.url}" target="_blank" rel="noopener">${f.cita}</a><span class="aporta">${f.aporta}</span></li>`;
 
+    const ICONO = { si: '✓', medio: '~', no: '✗' };
+    const marca = (clase, texto) => `<span class="marca"><span class="ic ${clase}" aria-hidden="true">${ICONO[clase]}</span>${texto}</span>`;
+    function pintarFiabilidad(e) {
+      const v = e.validacion;
+      if (!v) { $('fiabilidad').innerHTML = ''; return; }
+      const ch = { 'buena': 'si', 'moderada': 'medio', 'débil': 'no' }[v.habitat.nivel];
+      const cc = { 'demostrada': 'si', 'indicios': 'medio', 'no demostrada': 'no' }[v.clima.nivel];
+      $('fiabilidad').innerHTML = `<span class="t">Comprobado con hallazgos reales:</span> ` +
+        marca(ch, `hábitat ${v.habitat.nivel}`) + ' · ' + marca(cc, `efecto del tiempo ${v.clima.nivel}`) +
+        (cc === 'no' ? `<div class="nota-clima">En esta especie el tiempo reciente no ha mostrado relación con los hallazgos:
+          usa el mapa sobre todo para saber <b>dónde</b> (hábitat) y <b>cuándo</b> (temporada) buscar.</div>` : '');
+    }
+
     function pintarMetodo() {
       if (!catalogo) return;
       const e = catalogo.especies.find(x => x.id === sel.value);
+      pintarFiabilidad(e);
+      const v = e.validacion;
+      $('validacionEspecie').innerHTML = !v ? 'Sin validar.' : `
+        <table class="val">
+          <tr><td><b>Hábitat</b></td><td>${v.habitat.n} hallazgos con coordenadas precisas. Probabilidad de que un hallazgo
+            de esta especie tenga más hábitat que el de otra seta cualquiera: <b>${Math.round(v.habitat.auc * 100)} %</b>
+            (50 % = azar). ${v.habitat.pct_sin_habitat} % de hallazgos caen donde el mapa no ve hábitat
+            (frente al ${v.habitat.pct_territorio_sin_habitat} % del territorio).</td></tr>
+          <tr><td><b>Tiempo</b></td><td>${v.clima.n_hallazgos} hallazgos con fecha: el día del hallazgo puntúa más que el mismo
+            día de otros años en el <b>${v.clima.gana_pct} %</b> de ${v.clima.n_pares} comparaciones (50 % = azar;
+            p = ${v.clima.p}). Efecto ${v.clima.nivel}.</td></tr>
+          <tr><td><b>Temporada</b></td><td>Ajustada a los meses de ${v.temporada.n} hallazgos.</td></tr>
+        </table>
+        Datos de solo presencia y con sesgos (zonas accesibles, más observadores en otoño): sirven para ordenar
+        y calibrar, no son una probabilidad. Validación del ${v.fecha}.`;
+      $('fuentesValidacion').innerHTML = catalogo.fuentes_validacion.map(id => itemFuente(catalogo.fuentes[id])).join('');
       $('metodoPasos').innerHTML = catalogo.metodo.map(p => `<li>${p}</li>`).join('');
       $('tituloEspecie').textContent = `En qué se basa: ${e.nombre}`;
       $('resumenEspecie').textContent = e.resumen;
       $('fuentesEspecie').innerHTML = e.fuentes.length
         ? e.fuentes.map(id => itemFuente(catalogo.fuentes[id])).join('')
         : '<li><span class="tipo divulgacion">Sin estudios</span>No se ha encontrado ninguna fuente específica con cifras para esta especie.</li>';
-      $('supuestosEspecie').innerHTML = `<b>Supuestos:</b> ${e.supuestos} El umbral de hábitat (30 % de la superficie) también es supuesto.`;
+      $('supuestosEspecie').innerHTML = `<b>Supuestos:</b> ${e.supuestos} El umbral de hábitat (${Math.round(100 * e.habitat.saturacion)} % de la superficie) se eligió con datos de GBIF entre pocas alternativas.`;
       $('habitatEspecie').innerHTML = `<b>Hábitat que se usa:</b> ${e.habitat.texto}`;
       $('fuentesHabitat').innerHTML = catalogo.fuentes_habitat.map(id => itemFuente(catalogo.fuentes[id])).join('');
       $('fuentesGenerales').innerHTML = catalogo.fuentes_generales.map(id => itemFuente(catalogo.fuentes[id])).join('');

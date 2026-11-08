@@ -299,6 +299,66 @@ Tampoco hay umbral publicado de helada para el níscalo.
 - Prueba: el HTML local se sirve en Playwright sobre los datos reales de Render (la sesión no puede
   calcular en local cuando se agota el cupo diario de Open-Meteo de su IP compartida).
 
+## 5g. Validación con hallazgos reales de GBIF (nov-2026) — Fase 3a ✅
+
+**Datos.** `scripts/gbif_descarga.py`: API `api.gbif.org/v1/occurrence/search` (sin clave), España,
+lat 40-43,3 / lon −7,1 a −1,7 ("CyL ampliada"), 2000-2026, con coordenadas y sin problemas geoespaciales.
+**2.408 registros** (níscalo 478, boleto 456, oronja 182, seta de cardo 338, negrilla 300, angula 76,
+senderuela 578). Origen: Observation.org 1.145, iNaturalist 970, ARAN-Fungi 173, SIM-Fungal 30,
+MA-Fungi 26, JCYL-Fungi (Junta CyL) 28… Licencias: CC BY-NC 2.318, CC BY 85, CC0 5 → uso no comercial con
+cita. **En el repo solo se guardan agregados** (`static/validacion_gbif.json`), nunca los registros.
+taxonKeys: 5248629, 5954958, 5240269, 9075265, 5241808, 8871787 (C. lutescens, sinónimo), 2537250.
+Para una cita formal con DOI habría que generar una descarga con cuenta de GBIF (pendiente).
+
+**Método** (`scripts/gbif_validacion.py`, se ejecuta a mano con rasterio/numpy):
+1. *Hábitat*: factor de hábitat en una ventana de 0,02° alrededor de cada hallazgo (incertidumbre ≤ 1 km,
+   1.089 hallazgos) frente a (a) puntos al azar en tierra española de la región y (b) hallazgos de las
+   otras 6 especies (*target-group background*, corrige el sesgo de "dónde busca la gente"). AUC.
+   HRL Forest Type y Grassland 2018 descargados para toda la región (5.400 × 3.300 px a 0,001°).
+2. *Temporada*: reparto mensual de los hallazgos frente a los pesos mensuales del modelo.
+3. *Clima*: 50 hallazgos con fecha por especie; índice climático (solo Open-Meteo) el día del hallazgo
+   frente al **mismo día y lugar de otros 2 años** (época y sitio iguales: solo cambia el tiempo).
+   % de pares que gana el hallazgo y prueba de signos. ~1.000 series de 45 días de Open-Meteo.
+
+**Resultados.**
+| Especie | AUC hábitat vs otras setas | Hallazgos sin hábitat (territorio) | Clima: gana el hallazgo | p |
+|---|---|---|---|---|
+| Níscalo | 0,75 | 11 % (55 %) | 59 % | 0,09 (indicios) |
+| Boleto | 0,69 | 2 % (26 %) | 55 % | 0,30 |
+| Oronja | 0,67 | 4 % (31 %) | **74 %** | < 0,001 |
+| Seta de cardo | 0,64 | 2 % (8 %) | 52 % | 0,74 |
+| Negrilla | 0,57 | 14 % (51 %) | 53 % | 0,60 |
+| Angula | 0,64 (n = 34) | 9 % (51 %) | 47 % | 0,53 |
+| Senderuela | 0,71 | 1 % (8 %) | **66 %** | 0,003 |
+
+- **Hábitat**: señal en las 7 especies. Níscalo: 2,6 × más coníferas que los hallazgos de otras setas.
+  Boleto: más ligado a frondosas (× 1,7) que a coníferas (× 1,1). Negrilla: apenas prefiere el pinar.
+- **Temporada** (desajustes corregidos): oronja con máximo en agosto en el modelo → real 3 % en agosto,
+  máximo sep-oct y 12 % en junio; níscalo: septiembre solo 3 %, máximo en noviembre; angula y negrilla
+  desde octubre; senderuela con salida otoñal que llega a diciembre.
+- **Clima**: efecto demostrado en oronja y senderuela (el agua es el factor con señal); indicios en el
+  níscalo (temperatura y heladas tienen señal, la lluvia poca); **sin señal** en boleto, seta de cardo,
+  negrilla y angula.
+
+**Cambios aplicados (solo los respaldados por los datos):**
+- `ESPECIES[*]["fenologia"]` = reparto mensual real normalizado al mes máximo (meses < 2 % a 0).
+  Sesgo: más observadores en otoño. El solapamiento real/modelo pasa a 0,95-0,99 (en la misma muestra).
+- `HABITAT`: boleto "frondosas + ½ coníferas"; saturación por especie (regla: mayor AUC; si la ganancia
+  < 0,01, la que deja menos hallazgos sin hábitat): níscalo, seta de cardo y senderuela 0,3; boleto y
+  oronja 0,5; negrilla y angula 0,2.
+- **Clima: sin cambios.** Se exploraron ventanas de lluvia, objetivos y rangos térmicos eligiendo en
+  una mitad de los hallazgos y comprobando en la otra: ninguna mejora se sostuvo fuera de la muestra.
+- La app muestra junto al selector "Comprobado con hallazgos reales: hábitat … · efecto del tiempo …"
+  (icono + texto) y, si el efecto del tiempo no está demostrado, aconseja usar el mapa para el dónde y el
+  cuándo. Detalle en "Cómo se calcula y fuentes" → "Validación con hallazgos reales (GBIF)".
+
+**Limitaciones y siguientes pasos de validación:** datos de solo presencia y sesgados (accesibilidad,
+fines de semana); la fecha es la de observación, no la de inicio de la salida; 50 hallazgos por especie
+para el clima es poco (ampliar a todos los registros con fecha costaría ~5 000 llamadas a Open-Meteo:
+repartir en varios días). Con más muestra se podría recalibrar el clima por especie.
+Problema técnico: el proxy de la sesión corta conexiones si se abren cientos seguidas → reutilizar un
+único `httpx.AsyncClient` (`openmeteo.diarios(..., client=)`).
+
 ## 6. Hoja de ruta acordada (por fases)
 
 ### Fase 1 — Piloto Burgos ✅ (§4-§5d)
@@ -317,7 +377,7 @@ multiplica una salida sin calibrar. Por eso la prioridad es conseguir "verdad te
 
 Orden propuesto (de más a menos valor/esfuerzo):
 
-**3a. Observaciones reales de GBIF (prioridad 1).** GBIF agrega registros de presencia con fecha y
+**3a. Observaciones reales de GBIF — ✅ HECHO (§5g).** GBIF agrega registros de presencia con fecha y
 coordenadas (iNaturalist, Sociedad Micológica Ibérica, Flora Mycologica Iberica, herbarios). Licencias
 CC0 / CC BY / CC BY-NC por registro. API pública sin clave (`api.gbif.org`, **falta añadir el host**).
 *L. deliciosus* tiene taxonKey 5248629; *B. edulis* tiene decenas de miles de registros en Europa.

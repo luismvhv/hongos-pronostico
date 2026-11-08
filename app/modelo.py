@@ -27,11 +27,16 @@ SUPUESTOS (no respaldados con números en la literatura revisada; a calibrar en 
 - Rangos térmicos de todas las especies salvo B. edulis y el níscalo.
 - Penalización por heladas y ventanas fenológicas (orientativas, de partes regionales).
 """
+import json
 import math
 from datetime import date, timedelta
+from pathlib import Path
 
 # --- Perfiles por especie ---------------------------------------------------------------
-# fenologia: peso por mes (1-12) en Burgos; se interpola entre meses.
+# fenologia: peso por mes (1-12); se interpola entre meses. CALIBRADO con GBIF (nov-2026): reparto
+#   mensual real de 68-522 hallazgos por especie en Castilla y León ampliada, 2000-2026, normalizado
+#   al mes máximo; meses con < 2 % de hallazgos a 0 (scripts/gbif_validacion.py, NOTAS §5g).
+#   Sesgo: hay más observadores en otoño, lo que exagera algo los meses otoñales.
 # lluvia: ventana con retardo [lag_ini, lag_fin] días antes de hoy y mm "objetivo" (f≈0,9).
 # temp: trapecio (a, b, c, d) sobre la temperatura media de los últimos `dias_t` días.
 # helada: penalización por día con tmin ≤ 0 °C (leve) y ≤ −3 °C (fuerte) en los últimos 10 días.
@@ -39,7 +44,7 @@ ESPECIES = {
     "lactarius_deliciosus": {
         "nombre": "Níscalo (Lactarius deliciosus)",
         "grupo": "micorrícico (pino)",
-        "fenologia": {8: 0.1, 9: 0.5, 10: 1.0, 11: 1.0, 12: 0.6, 1: 0.1},
+        "fenologia": {1: 0.06, 9: 0.08, 10: 0.77, 11: 1.0, 12: 0.52},
         "lluvia": {"lag_ini": 5, "lag_fin": 30, "objetivo_mm": 50},
         "temp": (3, 8, 14, 20), "dias_t": 20,
         "helada": {"leve": 0.10, "fuerte": 0.25},
@@ -49,7 +54,7 @@ ESPECIES = {
     "boletus_edulis": {
         "nombre": "Boleto (Boletus edulis)",
         "grupo": "micorrícico (pino, haya, roble)",
-        "fenologia": {8: 0.3, 9: 1.0, 10: 1.0, 11: 0.5, 12: 0.1},
+        "fenologia": {6: 0.04, 7: 0.04, 9: 0.35, 10: 1.0, 11: 0.49, 12: 0.06},
         "lluvia": {"lag_ini": 5, "lag_fin": 26, "objetivo_mm": 50},
         "temp": (7, 11, 16, 21), "dias_t": 20,
         "helada": {"leve": 0.25, "fuerte": 0.50},
@@ -60,7 +65,7 @@ ESPECIES = {
     "amanita_caesarea": {
         "nombre": "Oronja (Amanita caesarea)",
         "grupo": "micorrícico (quercíneas, castaño)",
-        "fenologia": {7: 0.5, 8: 1.0, 9: 1.0, 10: 0.5, 11: 0.1},
+        "fenologia": {6: 0.33, 7: 0.21, 8: 0.08, 9: 1.0, 10: 0.93, 11: 0.21},
         "lluvia": {"lag_ini": 5, "lag_fin": 26, "objetivo_mm": 40},
         "temp": (12, 16, 22, 27), "dias_t": 20,
         "helada": {"leve": 0.40, "fuerte": 0.80},
@@ -69,7 +74,7 @@ ESPECIES = {
     "pleurotus_eryngii": {
         "nombre": "Seta de cardo (Pleurotus eryngii)",
         "grupo": "saprótrofo/parásito débil (raíces de Eryngium)",
-        "fenologia": {3: 0.2, 4: 0.4, 5: 0.3, 9: 0.3, 10: 1.0, 11: 1.0, 12: 0.5},
+        "fenologia": {3: 0.07, 4: 0.23, 5: 0.32, 6: 0.06, 9: 0.12, 10: 0.57, 11: 1.0, 12: 0.32},
         "lluvia": {"lag_ini": 3, "lag_fin": 21, "objetivo_mm": 35},
         "temp": (5, 9, 16, 22), "dias_t": 14,
         "helada": {"leve": 0.10, "fuerte": 0.25},
@@ -79,7 +84,7 @@ ESPECIES = {
     "tricholoma_terreum": {
         "nombre": "Negrilla (Tricholoma terreum)",
         "grupo": "micorrícico (pino)",
-        "fenologia": {10: 0.4, 11: 1.0, 12: 1.0, 1: 0.6, 2: 0.2},
+        "fenologia": {1: 0.18, 10: 0.45, 11: 1.0, 12: 0.57},
         "lluvia": {"lag_ini": 5, "lag_fin": 30, "objetivo_mm": 40},
         "temp": (1, 5, 11, 16), "dias_t": 20,
         "helada": {"leve": 0.03, "fuerte": 0.10},
@@ -89,7 +94,7 @@ ESPECIES = {
     "cantharellus_lutescens": {
         "nombre": "Angula de monte (Cantharellus lutescens)",
         "grupo": "micorrícico (pino)",
-        "fenologia": {10: 0.4, 11: 1.0, 12: 1.0, 1: 0.5},
+        "fenologia": {1: 0.21, 2: 0.12, 8: 0.12, 9: 0.21, 10: 0.58, 11: 1.0, 12: 0.5},
         "lluvia": {"lag_ini": 5, "lag_fin": 30, "objetivo_mm": 45},
         "temp": (1, 5, 11, 16), "dias_t": 20,
         "helada": {"leve": 0.05, "fuerte": 0.15},
@@ -100,7 +105,7 @@ ESPECIES = {
     "marasmius_oreades": {
         "nombre": "Senderuela (Marasmius oreades)",
         "grupo": "saprótrofo de pradera",
-        "fenologia": {4: 0.5, 5: 1.0, 6: 0.8, 9: 0.6, 10: 1.0, 11: 0.5},
+        "fenologia": {4: 0.35, 5: 0.71, 6: 0.22, 9: 0.24, 10: 0.57, 11: 1.0, 12: 0.16},
         "lluvia": {"lag_ini": 2, "lag_fin": 14, "objetivo_mm": 25},
         "temp": (7, 11, 20, 25), "dias_t": 14,
         "helada": {"leve": 0.15, "fuerte": 0.35},
@@ -291,6 +296,13 @@ FUENTES = {
         "url": "https://land.copernicus.eu/en/products/high-resolution-layer-forests-and-tree-cover", "tipo": "datos",
         "aporta": "Dónde hay bosque de coníferas, de frondosas y praderas, con 10 m de detalle.",
     },
+    "gbif": {
+        "cita": "GBIF.org: registros de presencia de las 7 especies en Castilla y León ampliada, 2000-2026 "
+                "(Observation.org, iNaturalist, ARAN-Fungi, SIM-Fungal, MA-Fungi, JCYL-Fungi y otros). "
+                "Licencias CC BY-NC 4.0, CC BY 4.0 y CC0.",
+        "url": "https://www.gbif.org/", "tipo": "datos",
+        "aporta": "2.400 hallazgos reales con fecha y lugar: validan el hábitat y el clima y calibran la temporada.",
+    },
     "copernicus_dem": {
         "cita": "Copernicus DEM GLO-90 (ESA / Airbus), vía AWS Open Data.",
         "url": "https://registry.opendata.aws/copernicus-dem/", "tipo": "datos",
@@ -300,24 +312,27 @@ FUENTES = {
 
 # --- Hábitat (Fase 2, capa de Copernicus precalculada en static/habitat_burgos.json) ----------
 # El factor de hábitat de una subcelda (≈ 1,7 × 2,2 km) es la fracción de su superficie que
-# ocupa el hábitat de la especie, saturando en `saturacion` (si el 30 % de la subcelda es pinar,
+# ocupa el hábitat de la especie, saturando en `saturacion` (p. ej. con saturación 0,3, si el 30 % de la subcelda es pinar,
 # el níscalo tiene hábitat pleno). La asociación especie ↔ hábitat está bien establecida en la
-# micología de campo; el umbral de saturación es un SUPUESTO.
+# micología de campo y se ha VALIDADO con GBIF (AUC 0,57-0,80 frente a hallazgos de otras setas).
+# Elegidos con GBIF entre pocas alternativas: boleto "frondosas + ½ coníferas"; saturación por especie
+# = la de mayor AUC, salvo ganancia < 0,01, en cuyo caso la que deja menos hallazgos sin hábitat.
 # Limitación: Copernicus solo distingue coníferas y frondosas, no la especie de árbol
 # (en Burgos las coníferas son casi todas pinos; las frondosas, robles, quejigos, encinas y hayas).
 HABITAT = {
     "lactarius_deliciosus": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
                              "texto": "Pinares (micorrícico de pinos)."},
-    "boletus_edulis": {"capas": {"conifera": 1.0, "frondosa": 1.0}, "saturacion": 0.3,
-                       "texto": "Pinares, hayedos, robledales y castañares (hospedadores variados)."},
-    "amanita_caesarea": {"capas": {"frondosa": 1.0}, "saturacion": 0.3,
+    "boletus_edulis": {"capas": {"frondosa": 1.0, "conifera": 0.5}, "saturacion": 0.5,
+                       "texto": "Sobre todo hayedos, robledales y castañares; también pinares "
+                                "(los hallazgos de GBIF están más asociados a frondosas)."},
+    "amanita_caesarea": {"capas": {"frondosa": 1.0}, "saturacion": 0.5,
                          "texto": "Bosques de frondosas: robles, encinas, castaños."},
     "pleurotus_eryngii": {"capas": {"pradera": 1.0}, "saturacion": 0.3,
                           "texto": "Pastos y eriales con cardo corredor (Eryngium campestre). "
                                    "Copernicus no ve los márgenes de cultivo: puede infravalorarse."},
-    "tricholoma_terreum": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
+    "tricholoma_terreum": {"capas": {"conifera": 1.0}, "saturacion": 0.2,
                            "texto": "Pinares."},
-    "cantharellus_lutescens": {"capas": {"conifera": 1.0}, "saturacion": 0.3,
+    "cantharellus_lutescens": {"capas": {"conifera": 1.0}, "saturacion": 0.2,
                                "texto": "Bosques de coníferas, sobre musgo."},
     "marasmius_oreades": {"capas": {"pradera": 1.0}, "saturacion": 0.3,
                           "texto": "Praderas y pastos (corros de brujas)."},
@@ -377,9 +392,46 @@ METODO = [
     "Hábitat (Copernicus): en una malla fina de unos 2 km se mira qué parte del terreno es pinar, "
     "bosque de frondosas o pradera, y se multiplica por el clima de su celda. Una zona sin el árbol "
     "de la especie queda a 0 aunque el tiempo sea perfecto. Se puede ver también solo el clima.",
+    "Validación con 2.400 hallazgos reales (GBIF): el hábitat tiene señal en las 7 especies; la "
+    "temporada se ha ajustado a los meses reales; el efecto del tiempo reciente solo se ha demostrado "
+    "en algunas especies (se indica junto al selector).",
     "No es una probabilidad calibrada: no distingue la especie de árbol (solo coníferas o frondosas), "
-    "ni el suelo, ni la edad del bosque. Modelo v1: pendiente de calibrar con partes micológicos reales.",
+    "ni el suelo, ni la edad del bosque.",
 ]
+
+
+_VALIDACION = {"datos": None}
+
+
+def _validacion() -> dict:
+    """Resumen de static/validacion_gbif.json (generado por scripts/gbif_validacion.py)."""
+    if _VALIDACION["datos"] is None:
+        ruta = Path(__file__).resolve().parent.parent / "static" / "validacion_gbif.json"
+        _VALIDACION["datos"] = json.loads(ruta.read_text()) if ruta.exists() else {}
+    return _VALIDACION["datos"]
+
+
+def validacion_especie(sp: str) -> dict | None:
+    v = _validacion()
+    if not v:
+        return None
+    h, c, f = v["habitat"][sp], v["clima"][sp], v["fenologia"][sp]
+    auc = h["auc_vs_otras_setas"]
+    nivel_h = "buena" if auc >= 0.65 else "moderada" if auc >= 0.6 else "débil"
+    gana, p = c["gana_hallazgo_pct"], c["p_signos"]
+    if p is not None and p < 0.05 and gana > 55:
+        nivel_c = "demostrada"
+    elif p is not None and p < 0.1 and gana > 55:
+        nivel_c = "indicios"
+    else:
+        nivel_c = "no demostrada"
+    return {
+        "habitat": {"nivel": nivel_h, "auc": auc, "n": h["n"], "pct_sin_habitat": h["pct_hallazgos_sin_habitat"],
+                    "pct_territorio_sin_habitat": h["pct_territorio_sin_habitat"]},
+        "clima": {"nivel": nivel_c, "gana_pct": gana, "p": p, "n_hallazgos": c["n_hallazgos"], "n_pares": c["n_pares"]},
+        "temporada": {"n": f["n"]},
+        "fecha": v["fecha"],
+    }
 
 
 def catalogo() -> dict:
@@ -388,6 +440,6 @@ def catalogo() -> dict:
         fe = FUENTES_ESPECIE.get(k, {})
         especies.append({"id": k, "nombre": p["nombre"], "grupo": p["grupo"], "resumen": p["fuentes"],
                          "fuentes": fe.get("fuentes", []), "supuestos": fe.get("supuestos"),
-                         "habitat": HABITAT[k]})
+                         "habitat": HABITAT[k], "validacion": validacion_especie(k)})
     return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES,
-            "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"]}
+            "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"], "fuentes_validacion": ["gbif"]}

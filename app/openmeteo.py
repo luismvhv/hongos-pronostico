@@ -78,7 +78,8 @@ async def _get(client: httpx.AsyncClient, params: dict):
     raise OpenMeteoError(f"Open-Meteo no responde: {ultimo}")
 
 
-async def diarios(puntos: list[tuple], inicio: date, fin: date, variables: list[str] | None = None) -> list[dict]:
+async def diarios(puntos: list[tuple], inicio: date, fin: date, variables: list[str] | None = None,
+                  client: httpx.AsyncClient | None = None) -> list[dict]:
     """Series diarias para varios puntos.
 
     puntos: lista de (lat, lon) o (lat, lon, elevacion_m).
@@ -92,7 +93,10 @@ async def diarios(puntos: list[tuple], inicio: date, fin: date, variables: list[
         return hit[1]
 
     out: list[dict] = []
-    async with httpx.AsyncClient(timeout=90) as client:
+    # Un cliente compartido reutiliza la conexión (muchas consultas seguidas: validación GBIF)
+    propio = client is None
+    client = client or httpx.AsyncClient(timeout=90)
+    try:
         for i in range(0, len(puntos), LOTE):
             lote = puntos[i:i + LOTE]
             params = {
@@ -124,6 +128,9 @@ async def diarios(puntos: list[tuple], inicio: date, fin: date, variables: list[
                     "elevacion": d.get("elevation"),
                     "valores": valores,
                 })
+    finally:
+        if propio:
+            await client.aclose()
     _cache[clave] = (time.time(), out)
     return out
 
