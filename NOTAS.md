@@ -497,7 +497,7 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   `scripts/habitat_burgos.py` → `habitat.py --provincia` (los HRL de la región CyL ampliada ya se
   descargaron para GBIF: reutilizables) y DEM. Comprobar el endpoint AEMET de valores diarios de
   **todas las estaciones** en una sola petición (rango limitado) para no pedir estación a estación.
-- **4.1 Cálculo por lotes en vez de bajo demanda (clave de la resiliencia).** Un script `actualizar.py`
+- **4.1 Cálculo por lotes — ✅ HECHO (falta activar Pages).** Un script `actualizar.py`
   que una vez al día (tras la publicación de AEMET) calcula las 9 provincias y escribe un JSON por
   provincia (+ resumen CyL) con fecha y versión. Ejecutado por **GitHub Actions programado** (la clave
   AEMET como *secret* del repositorio, que pone Luis; nunca en el código). Historial incremental de
@@ -536,6 +536,30 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   funciona; ~830 estaciones de España, **99 de CyL**; **rango máximo 15 días** ("El rango de fechas no
   puede ser superior a 15 dias"); 1-13 s por petición; retraso de publicación de 4 días (21-nov → 17-nov).
   90 días de toda CyL = 6 peticiones en vez de ~330.
+
+**Fase 4.1 — cálculo diario por lotes (21-nov-2026).**
+- `scripts/actualizar.py` + `.github/workflows/actualizar.yml` ("Actualizar datos y publicar"):
+  cron 06:17 UTC y "Run workflow" → cálculo completo; push a `main` → solo republica la web con los
+  datos ya publicados (`--reutilizar`; si no hay nada publicado, cálculo completo). Pruebas antes de
+  publicar; si sale degradado se publica igualmente y el job `avisar` falla (correo de GitHub).
+- Salida en `datos/`: `mapa/<PROV>.json` (= /api/mapa), `estado.json`, `resumen_cyl.json`
+  (índice medio por provincia y especie, para el selector), `especies.json`.
+- AEMET en bloque (`aemet.daily_all`, bloques de 15 días, 60 días de validación) y el secreto
+  `AEMET_API_KEY` de GitHub. Open-Meteo con limitador (`openmeteo.RITMO` = 450/min, 4 500/h) y
+  estimación de coste (`openmeteo.coste`).
+- **Primera ejecución real** (run 44914749287): 9/9 provincias frescas con AEMET, datos hasta
+  20-nov, **1 380 s**, **≈ 4 226 llamadas** Open-Meteo, artefacto de 469 KB. El limitador por hora
+  marca el ritmo (Burgos 399 s). Ojo: con más especies o más días habrá que reducir coste (historial
+  incremental: pedir solo los últimos días).
+- Publicación en **GitHub Pages** (repo público): requiere activar Pages una vez en
+  Settings → Pages → Source: "GitHub Actions". URL: https://luismvhv.github.io/hongos-pronostico/
+- Frontend: lee `datos/estado.json`; si existe (Pages) usa los datos precalculados (carga en ~0,4 s,
+  sin pantalla de 2 min); si no (Render), usa la API como antes. Avisa si la provincia no se pudo
+  actualizar, si AEMET no respondió o si los datos tienen > 36 h. Rutas relativas (`static/...`).
+- La sesión de Claude no puede probar el lote en local cuando la IP compartida agota el cupo diario de
+  Open-Meteo: la prueba real se hace en GitHub Actions (`mcp__github__actions_*`, logs al terminar).
+- Avisos de GitHub: las acciones v4/v5 usan Node 20 (obsoleto); funcionan, actualizar cuando haya
+  versiones nuevas.
 
 **Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
 (2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).

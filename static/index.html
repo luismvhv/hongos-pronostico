@@ -646,8 +646,8 @@
       try {
         // Modo estático (GitHub Pages): datos precalculados cada mañana en datos/.
         // Si no existen (p. ej. en Render), se usa la API como antes.
-        catalogo = await leerJSON('datos/especies.json') || await (await fetch('/api/especies')).json();
-        estadoLote = await leerJSON('datos/estado.json');
+        estadoLote = await leerJSON('datos/estado.json');   // si no existe: modo API (Render)
+        catalogo = (estadoLote && await leerJSON('datos/especies.json')) || await (await fetch('/api/especies')).json();
         sel.innerHTML = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
         const guardada = leer('especie');
         if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
@@ -659,7 +659,7 @@
                                                        : { paddingTopRight: [330, 0], padding: [20, 20] });
         });
 
-        datos = await leerJSON(`datos/mapa/${PROVINCIA}.json`) || await pedirMapa();
+        datos = (estadoLote && await leerJSON(`datos/mapa/${PROVINCIA}.json`)) || await pedirMapa();
         try {
           const hj = await (await fetch(`static/habitat/${PROVINCIA}.json`)).json();
           const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
