@@ -36,7 +36,7 @@ from rasterio.merge import merge
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
-from app.mapa import _dentro, _poligonos  # noqa: E402  (mismo contorno y test que el mapa)
+from app.mapa import _poligonos, dentro_provincia, exteriores  # noqa: E402  (mismo contorno y test que el mapa)
 from app.provincias import PROVINCIAS, habitat as ruta_habitat  # noqa: E402
 
 RES = 0.001                           # grados por píxel en la descarga HRL
@@ -95,8 +95,8 @@ def dem(cache: Path, BBOX: tuple):
 
 
 def calcular(provincia: str, cache: Path):
-    anillos = _poligonos(provincia)
-    BBOX = bbox_de(anillos)
+    polys = _poligonos(provincia)
+    BBOX = bbox_de(exteriores(polys))
     tipo = hrl(CAPAS["tipo"], cache, BBOX, provincia)          # 0 no bosque, 1 frondosas, 2 coníferas
     dens = hrl(CAPAS["densidad"], cache, BBOX, provincia)      # 0-100 %
     prad = hrl(CAPAS["pradera"], cache, BBOX, provincia)       # 0/1
@@ -109,7 +109,7 @@ def calcular(provincia: str, cache: Path):
         lat = round(BBOX[1] + PASO * i + PASO / 2, 3)
         for j in range(nlon):
             lon = round(BBOX[0] + PASO * j + PASO / 2, 3)
-            if any(_dentro(lon, lat, a) for a in anillos):
+            if dentro_provincia(lon, lat, polys):
                 # ventana HRL (fila 0 = norte)
                 c0 = int(round((lon - PASO / 2 - BBOX[0]) / RES)); c1 = c0 + int(round(PASO / RES))
                 f0 = int(round((BBOX[3] - (lat + PASO / 2)) / RES)); f1 = f0 + int(round(PASO / RES))

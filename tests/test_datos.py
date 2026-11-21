@@ -19,6 +19,13 @@ def test_dentro_de_un_cuadrado():
     assert not mapa._dentro(1.5, 0.5, cuadrado)
 
 
+def test_huecos_de_los_poligonos():
+    exterior = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]
+    hueco = [[1, 1], [2, 1], [2, 2], [1, 2], [1, 1]]
+    assert mapa.dentro_provincia(3, 3, [[exterior, hueco]])
+    assert not mapa.dentro_provincia(1.5, 1.5, [[exterior, hueco]])   # enclave de otra provincia
+
+
 def test_confianza_segun_distancia():
     est = {"confianza": "alta"}
     assert mapa._confianza(est, 10) == "alta"

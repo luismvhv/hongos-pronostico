@@ -45,15 +45,27 @@ def en_cache(provincia: str = "BURGOS") -> bool:
     return bool(hit and time.time() - hit[0] < CACHE_TTL)
 
 
-def _poligonos(provincia: str) -> list[list[list[float]]]:
+def _poligonos(provincia: str) -> list[list[list[list[float]]]]:
+    """Polígonos de la provincia: cada uno es [anillo exterior, hueco1, hueco2…].
+
+    Los huecos importan: Burgos tiene enclaves de Palencia y León uno de Valladolid; ignorarlos
+    asignaba subceldas a dos provincias (error real encontrado en nov-2026).
+    """
     g = json.loads(CONTORNOS[provincia].read_text())
-    anillos = []
+    polys = []
     for f in g["features"]:
         geo = f["geometry"]
-        polys = geo["coordinates"] if geo["type"] == "MultiPolygon" else [geo["coordinates"]]
-        for poly in polys:
-            anillos.append(poly[0])  # anillo exterior (los huecos no importan a esta escala)
-    return anillos
+        polys.extend(geo["coordinates"] if geo["type"] == "MultiPolygon" else [geo["coordinates"]])
+    return polys
+
+
+def exteriores(polys) -> list[list[list[float]]]:
+    return [p[0] for p in polys]
+
+
+def dentro_provincia(lon: float, lat: float, polys) -> bool:
+    """Dentro de algún polígono y fuera de sus huecos."""
+    return any(_dentro(lon, lat, p[0]) and not any(_dentro(lon, lat, h) for h in p[1:]) for p in polys)
 
 
 def _dentro(lon: float, lat: float, anillo: list[list[float]]) -> bool:
@@ -70,15 +82,15 @@ def _dentro(lon: float, lat: float, anillo: list[list[float]]) -> bool:
 
 
 def malla(provincia: str = "BURGOS") -> list[tuple[float, float]]:
-    anillos = _poligonos(provincia)
-    xs = [c[0] for a in anillos for c in a]
-    ys = [c[1] for a in anillos for c in a]
+    polys = _poligonos(provincia)
+    xs = [c[0] for a in exteriores(polys) for c in a]
+    ys = [c[1] for a in exteriores(polys) for c in a]
     celdas = []
     lat = math.floor(min(ys) / PASO) * PASO + PASO / 2
     while lat < max(ys):
         lon = math.floor(min(xs) / PASO) * PASO + PASO / 2
         while lon < max(xs):
-            if any(_dentro(lon, lat, a) for a in anillos):
+            if dentro_provincia(lon, lat, polys):
                 celdas.append((round(lat, 3), round(lon, 3)))
             lon += PASO
         lat += PASO

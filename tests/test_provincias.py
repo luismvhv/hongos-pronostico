@@ -45,5 +45,5 @@ def test_habitat_de_las_9_provincias_encaja_en_las_fronteras():
             assert round(lat * 100) % 2 == 1 and round(abs(lon) * 100) % 2 == 1, (clave, lat, lon)
             assert (lat, lon) not in vistas, f"subcelda repetida en {clave} y {vistas.get((lat, lon))}"
             vistas[(lat, lon)] = clave
-            assert 0 <= c[2] + c[3] <= 1.0001      # coníferas + frondosas no superan el 100 %
+            assert 0 <= c[2] + c[3] <= 1.002       # coníferas + frondosas <= 100 % (± redondeo a 3 decimales)
     assert len(vistas) > 25000
