@@ -463,6 +463,66 @@ por especie (p. ej. champiñón ↔ *Amanita* blancas mortales, perretxiko ↔ *
 *Inocybe*, senderuela ↔ *Clitocybe* blancas, colmenilla ↔ *Gyromitra*, rebozuelo ↔ *Omphalotus*,
 parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar setas.
 
+### 6.3 Plan hacia un modelo resiliente de toda Castilla y León con selector de provincias (nov-2026)
+
+**Dimensiones medidas (21-nov-2026).**
+| Provincia | Celdas clima 0,1° | Subceldas hábitat 0,02° | Estaciones AEMET | Hongos en GBIF 2000+ (especies) | Registros de las 7 especies |
+|---|---|---|---|---|---|
+| León | 172 | 4 271 | 15 | 4 687 (1 087) | 128 |
+| Burgos | 159 | 3 917 | 14 | 4 743 (1 169) | 115 |
+| Salamanca | 130 | 3 299 | 14 | 5 044 (1 159) | 53 |
+| Zamora | 116 | 2 856 | 14 | 1 303 (511) | 33 |
+| Soria | 106 | 2 782 | 13 | 3 409 (936) | 104 |
+| Valladolid | 90 | 2 192 | 10 | 886 (485) | 7 |
+| Palencia | 88 | 2 195 | 9 | 1 754 (519) | 48 |
+| Ávila | 83 | 2 131 | 12 | 4 536 (1 201) | 132 |
+| Segovia | 74 | 1 855 | 9 | 3 633 (925) | 79 |
+| **CyL** | **1 018** | **25 498** | **110** | ~30 000 | ~700 |
+(GBIF por provincia con `gadmGid=ESP.5.1_1` … `ESP.5.9_1`, en orden alfabético Ávila…Zamora.)
+
+**Diagnóstico.**
+1. La arquitectura actual (cálculo bajo demanda en Render gratuito, caché en memoria que se pierde al
+   dormirse, ~100 s en frío, 502 durante el cálculo) no escala: 9 provincias × recálculo cada 6 h ≈
+   13 000 "llamadas" Open-Meteo/día (> 10 000) y ~330 peticiones AEMET por validación completa.
+2. Open-Meteo es punto único de fallo para el dato en malla; AEMET falla a menudo (429, 500).
+3. No hay tests ni CI: cada cambio se verifica a mano.
+4. Datos de validación muy desiguales: Valladolid (7 registros), Zamora (33) y Palencia (48) no permiten
+   validar por provincia → calibrar con CyL agrupada y medir si el modelo **se transfiere** entre provincias.
+5. CyL es climáticamente diversa (Cordillera Cantábrica, Sistema Central, meseta, Bierzo atlántico):
+   la temporada y los umbrales calibrados en una zona pueden no valer en otra.
+
+**Fases propuestas.**
+- **4.0 Cimientos (1-2 sesiones).** Tests (pytest: modelo, conversiones AEMET, fusión, hábitat) + CI en
+  GitHub Actions. Generalizar por provincia: contornos de las 9 desde es-atlas (`static/provincias/`),
+  `scripts/habitat_burgos.py` → `habitat.py --provincia` (los HRL de la región CyL ampliada ya se
+  descargaron para GBIF: reutilizables) y DEM. Comprobar el endpoint AEMET de valores diarios de
+  **todas las estaciones** en una sola petición (rango limitado) para no pedir estación a estación.
+- **4.1 Cálculo por lotes en vez de bajo demanda (clave de la resiliencia).** Un script `actualizar.py`
+  que una vez al día (tras la publicación de AEMET) calcula las 9 provincias y escribe un JSON por
+  provincia (+ resumen CyL) con fecha y versión. Ejecutado por **GitHub Actions programado** (la clave
+  AEMET como *secret* del repositorio, que pone Luis; nunca en el código). Historial incremental de
+  Open-Meteo: solo se piden los últimos días y se añaden a lo guardado (~1 000 llamadas/día para toda CyL).
+  Si un proveedor falla, se publica el último dato bueno con su fecha y un aviso ("datos de hace 2 días");
+  si falla AEMET, solo Open-Meteo con confianza rebajada (ya implementado).
+- **4.2 Selector de provincias y web estática.** Pantalla inicial con el mapa de CyL y el índice medio por
+  provincia para la especie elegida; al elegir, se carga solo esa provincia (`?provincia=SORIA`, se
+  recuerda la última). La web pasa a ser estática (Render Static Site o GitHub Pages: no se duerme,
+  carga en < 1 s, sin pantalla de 2 minutos). FastAPI queda para el lote y consultas puntuales.
+- **4.3 Validación para toda CyL.** Descarga completa de GBIF con cuenta (DOI); validación espacial
+  **dejando fuera una provincia cada vez** (¿se mantiene el AUC de hábitat y la señal del clima?);
+  AEMET vs Open-Meteo en las 110 estaciones; temporada por zonas (montaña norte, Sistema Central,
+  meseta) si los datos lo sostienen; partes de Micocyl, que cubren las 9 provincias. Fiabilidad
+  mostrada por especie **y por provincia** en la app.
+- **4.4 Vigilancia.** Fichero de estado (última actualización, proveedores OK/KO), aviso por correo
+  de GitHub si falla el lote, pruebas de humo tras cada despliegue, y alternativa documentada a
+  Open-Meteo (ERA5-Land del Copernicus Climate Data Store, con cuenta y ~5 días de retraso).
+- Después: ampliar a todas las setas recolectables (§6.2) sobre esta base.
+
+**Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
+(2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).
+(3) Cuenta de GBIF para la descarga completa. (4) Si el repositorio es privado, GitHub Actions da
+2 000 min/mes gratis (el lote diario usaría ~300-450).
+
 ## 7. Forma de trabajar con Luis
 - Responder en español, explicar paso a paso, ser claro sobre qué es riguroso y qué es aproximación.
 - Prefiere avanzar rápido y que Claude cierre el ciclo de feedback por sí mismo
