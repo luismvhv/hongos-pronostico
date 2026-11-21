@@ -162,14 +162,21 @@ async def precip_07a07(puntos: list[tuple], inicio: date, fin: date) -> list[dic
                 data = [data]
             for d in data:
                 horas = d.get("hourly", {})
-                serie = dict(zip(horas.get("time", []), horas.get("precipitation", [])))
-                por_dia = {}
-                dia = inicio
-                while dia <= fin:
-                    vals = [serie.get(f"{(dia if h < 17 else dia + timedelta(days=1)).isoformat()}T{(h + 7) % 24:02d}:00")
-                            for h in range(24)]
-                    por_dia[dia.isoformat()] = None if any(v is None for v in vals) else round(sum(vals), 1)
-                    dia += timedelta(days=1)
-                out.append(por_dia)
+                out.append(sumar_07a07(dict(zip(horas.get("time", []), horas.get("precipitation", []))), inicio, fin))
     _cache[clave] = (time.time(), out)
     return out
+
+
+def sumar_07a07(serie: dict, inicio: date, fin: date) -> dict:
+    """Agrega lluvia horaria (claves 'AAAA-MM-DDTHH:00' en UTC) al día climatológico de AEMET.
+
+    El día D suma de 07 UTC de D a 06 UTC de D+1 (24 horas). Si falta alguna hora, None.
+    """
+    por_dia = {}
+    dia = inicio
+    while dia <= fin:
+        vals = [serie.get(f"{(dia if h < 17 else dia + timedelta(days=1)).isoformat()}T{(h + 7) % 24:02d}:00")
+                for h in range(24)]
+        por_dia[dia.isoformat()] = None if any(v is None for v in vals) else round(sum(vals), 1)
+        dia += timedelta(days=1)
+    return por_dia
