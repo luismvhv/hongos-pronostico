@@ -472,12 +472,12 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
 | Burgos | 159 | 3 917 | 14 | 4 743 (1 169) | 115 |
 | Salamanca | 130 | 3 299 | 14 | 5 044 (1 159) | 53 |
 | Zamora | 116 | 2 856 | 14 | 1 303 (511) | 33 |
-| Soria | 106 | 2 782 | 13 | 3 409 (936) | 104 |
+| Soria | 107 | 2 782 | 13 | 3 409 (936) | 104 |
 | Valladolid | 90 | 2 192 | 10 | 886 (485) | 7 |
 | Palencia | 88 | 2 195 | 9 | 1 754 (519) | 48 |
 | Ávila | 83 | 2 131 | 12 | 4 536 (1 201) | 132 |
 | Segovia | 74 | 1 855 | 9 | 3 633 (925) | 79 |
-| **CyL** | **1 018** | **25 498** | **110** | ~30 000 | ~700 |
+| **CyL** | **1 019** | **25 498** | **110** | ~30 000 | ~700 |
 (GBIF por provincia con `gadmGid=ESP.5.1_1` … `ESP.5.9_1`, en orden alfabético Ávila…Zamora.)
 
 **Diagnóstico.**

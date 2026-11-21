@@ -2,7 +2,7 @@
 
 Malla: celdas de 0,1° (≈ 8 × 11 km), del orden de la resolución de ECMWF IFS (~9 km);
 una malla más fina aparentaría un detalle que el dato no tiene. Se conservan las celdas
-cuyo centro cae dentro del contorno provincial (IGN vía es-atlas, static/burgos.geojson).
+cuyo centro cae dentro del contorno provincial (IGN vía es-atlas, static/provincias/<CLAVE>.geojson).
 
 Fusión con AEMET (provisional; ver NOTAS §6.4 y §4c):
 - Peso de la estación más cercana con validación correcta: k = exp(−d / 20 km) (20 km SUPUESTO).
@@ -20,13 +20,13 @@ import time
 from datetime import date, timedelta
 from pathlib import Path
 
-from app import modelo, openmeteo, progreso, validacion
+from app import modelo, openmeteo, progreso, provincias, validacion
 
 PASO = 0.1
 DIAS = 45
 RADIO_PESO_KM = 20.0
 CACHE_TTL = 6 * 3600
-CONTORNOS = {"BURGOS": Path(__file__).resolve().parent.parent / "static" / "burgos.geojson"}
+CONTORNOS = {k: provincias.contorno(k) for k in provincias.PROVINCIAS}
 NIVELES = ["baja", "media", "alta"]
 AVISOS = {
     "alta": None,

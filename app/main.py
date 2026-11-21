@@ -12,6 +12,7 @@ from app import validacion
 from app import modelo
 from app import mapa
 from app import progreso
+from app import provincias as provs
 from app import comparar as comparacion
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -131,13 +132,19 @@ async def favorabilidad(
 @app.get("/api/mapa")
 async def mapa_endpoint(provincia: str = Query("BURGOS")):
     """Malla de favorabilidad por especie con confianza por celda (la primera vez tarda ~2 min)."""
-    prov = provincia.strip().upper()
-    if prov not in mapa.CONTORNOS:
-        raise HTTPException(status_code=404, detail=f"Provincia no disponible todavía: {prov}")
+    prov = provs.normalizar(provincia)
+    if prov is None:
+        raise HTTPException(status_code=404, detail=f"Provincia no disponible (solo Castilla y León): {provincia}")
     try:
         return await mapa.calcular(prov)
     except openmeteo.OpenMeteoError as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.get("/api/provincias")
+async def provincias_endpoint():
+    """Provincias de Castilla y León disponibles (contorno y, si existe, capa de hábitat)."""
+    return {"provincias": provs.listado()}
 
 
 @app.get("/api/mapa/progreso")

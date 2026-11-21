@@ -601,7 +601,7 @@
     async function pedirMapa(intentos = 8) {
       for (let i = 1; ; i++) {
         let r = null;
-        try { r = await fetch('/api/mapa?provincia=BURGOS'); } catch (_) { r = null; }
+        try { r = await fetch(`/api/mapa?provincia=${PROVINCIA}`); } catch (_) { r = null; }
         if (r && r.ok) return r.json();
         const transitorio = !r || [502, 503, 504].includes(r.status);
         if (!transitorio || i >= intentos) {
@@ -613,6 +613,9 @@
         await new Promise(res => setTimeout(res, 5000));
       }
     }
+
+    // Provincia mostrada (el selector llegará en la fase 4.2; de momento, Burgos)
+    const PROVINCIA = 'BURGOS';
 
     // ---------- Arranque ----------
     async function cargar() {
@@ -626,7 +629,7 @@
         if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
         pintarMetodo();
 
-        fetch('/static/burgos.geojson').then(r => r.json()).then(g => {
+        fetch(`/static/provincias/${PROVINCIA}.geojson`).then(r => r.json()).then(g => {
           const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
           map.fitBounds(contorno.getBounds(), movil() ? { paddingBottomRight: [0, 140] }
                                                        : { paddingTopRight: [330, 0], padding: [20, 20] });
@@ -634,7 +637,7 @@
 
         datos = await pedirMapa();
         try {
-          const hj = await (await fetch('/static/habitat_burgos.json')).json();
+          const hj = await (await fetch(`/static/habitat/${PROVINCIA}.json`)).json();
           const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
           const cercana = (la, lo) => datos.celdas.reduce((m, c) =>
             ((c.lat - la) ** 2 + ((c.lon - lo) * 0.74) ** 2 < (m.lat - la) ** 2 + ((m.lon - lo) * 0.74) ** 2 ? c : m));

@@ -310,7 +310,7 @@ FUENTES = {
     },
 }
 
-# --- Hábitat (Fase 2, capa de Copernicus precalculada en static/habitat_burgos.json) ----------
+# --- Hábitat (Fase 2, capa de Copernicus precalculada en static/habitat/<PROVINCIA>.json) ----------
 # El factor de hábitat de una subcelda (≈ 1,7 × 2,2 km) es la fracción de su superficie que
 # ocupa el hábitat de la especie, saturando en `saturacion` (p. ej. con saturación 0,3, si el 30 % de la subcelda es pinar,
 # el níscalo tiene hábitat pleno). La asociación especie ↔ hábitat está bien establecida en la
