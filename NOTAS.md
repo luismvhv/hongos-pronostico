@@ -492,7 +492,7 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
    la temporada y los umbrales calibrados en una zona pueden no valer en otra.
 
 **Fases propuestas.**
-- **4.0 Cimientos (1-2 sesiones).** Tests (pytest: modelo, conversiones AEMET, fusión, hábitat) + CI en
+- **4.0 Cimientos — ✅ HECHO (ver abajo).** Tests (pytest: modelo, conversiones AEMET, fusión, hábitat) + CI en
   GitHub Actions. Generalizar por provincia: contornos de las 9 desde es-atlas (`static/provincias/`),
   `scripts/habitat_burgos.py` → `habitat.py --provincia` (los HRL de la región CyL ampliada ya se
   descargaron para GBIF: reutilizables) y DEM. Comprobar el endpoint AEMET de valores diarios de
@@ -517,6 +517,25 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   de GitHub si falla el lote, pruebas de humo tras cada despliegue, y alternativa documentada a
   Open-Meteo (ERA5-Land del Copernicus Climate Data Store, con cuenta y ~5 días de retraso).
 - Después: ampliar a todas las setas recolectables (§6.2) sobre esta base.
+
+**Fase 4.0 — HECHA (21-nov-2026).**
+- **Pruebas y CI**: `tests/` (32 pruebas sin red, `python -m pytest -q`) y `.github/workflows/pruebas.yml`
+  (se ejecuta en cada push). Lección: no encadenar `pytest | tail && git commit` (el `tail` oculta el
+  fallo); comprobar `$?` antes de subir. La CI cazó un fallo real (subceldas repetidas).
+- **Provincias**: `app/provincias.py` (clave AEMET, INE, GADM de GBIF); contornos de las 9 y `CYL.geojson`
+  en `static/provincias/` (`scripts/contornos.py`, IGN vía es-atlas); `/api/provincias`; `/api/mapa`
+  acepta cualquier provincia de CyL (con o sin tildes). La web sigue mostrando Burgos.
+- **Enclaves**: los polígonos tienen huecos (Burgos con enclaves de Palencia, León con uno de Valladolid).
+  `mapa.dentro_provincia` los respeta; antes 6 subceldas caían en dos provincias.
+- **Hábitat de las 9 provincias**: `scripts/habitat.py --todas` (antes `habitat_burgos.py`), malla global
+  alineada a 0,02° → 25 493 subceldas sin solapes, `static/habitat/<CLAVE>.json` (85-200 KB cada una).
+  Medias: coníferas máx. Soria 17 % y Segovia 16 %; frondosas máx. Salamanca 32 % (dehesas) y León 24 %;
+  Valladolid la menos arbolada (7 % + 5 %). Burgos: mismas fracciones Copernicus que antes; el relieve
+  varía ligeramente (recorte del DEM desplazado un píxel de 90 m; informativo, no puntúa).
+- **AEMET, todas las estaciones en una petición** (`aemet.daily_all`, diagnóstico `/api/aemet/prueba_todas`):
+  funciona; ~830 estaciones de España, **99 de CyL**; **rango máximo 15 días** ("El rango de fechas no
+  puede ser superior a 15 dias"); 1-13 s por petición; retraso de publicación de 4 días (21-nov → 17-nov).
+  90 días de toda CyL = 6 peticiones en vez de ~330.
 
 **Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
 (2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).
