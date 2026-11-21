@@ -89,9 +89,14 @@ def metricas(aemet_vals: list[dict], om_vals: list[dict], om_prec: dict) -> dict
             "confianza": nivel, "motivos": fallos}
 
 
-async def validar(provincias: set[str], dias: int = 90) -> dict:
+async def validar(provincias: set[str], dias: int = 90, series_aemet: dict | None = None) -> dict:
+    """Valida AEMET vs Open-Meteo en las estaciones de las provincias indicadas.
+
+    series_aemet: {indicativo: [valores diarios]} ya descargadas en bloque (cálculo por lotes,
+    aemet.daily_all). Si es None, se piden estación a estación (modo web, más lento).
+    """
     clave = (tuple(sorted(provincias)), dias)
-    hit = _cache.get(clave)
+    hit = _cache.get(clave) if series_aemet is None else None
     if hit and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
 
@@ -105,6 +110,10 @@ async def validar(provincias: set[str], dias: int = 90) -> dict:
     sem = asyncio.Semaphore(MAX_CONCURRENCIA)
 
     async def bajar(est):
+        if series_aemet is not None:
+            vals = [v for v in series_aemet.get(est["indicativo"], [])
+                    if inicio.isoformat() <= (v.get("fecha") or "") <= fin.isoformat()]
+            return vals, (None if vals else "Sin datos de AEMET para esa estación y periodo")
         async with sem:
             try:
                 return await aemet.daily_values(est["indicativo"], inicio, fin), None
@@ -139,6 +148,6 @@ async def validar(provincias: set[str], dias: int = 90) -> dict:
         "fuente_modelo": openmeteo.ATRIBUCION,
     }
     # Solo se cachea si no hubo fallos transitorios (un "sin datos" real sí se cachea)
-    if all(f["error"] in (None, "Sin datos de AEMET para esa estación y periodo") for f in filas):
+    if series_aemet is None and all(f["error"] in (None, "Sin datos de AEMET para esa estación y periodo") for f in filas):
         _cache[clave] = (time.time(), res)
     return res

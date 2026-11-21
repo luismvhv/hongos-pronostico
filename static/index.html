@@ -487,7 +487,7 @@
       }
       crearTrama();
 
-      const partes = [];
+      const partes = avisosLote();
       if (datos.aviso_global) partes.push(datos.aviso_global);
       if (n.media + n.baja > 0) {
         partes.push(`Confianza: ${n.alta} celdas alta, ${n.media} media, ${n.baja} baja (de ${datos.celdas.length}). ` +
@@ -617,27 +617,51 @@
     // Provincia mostrada (el selector llegará en la fase 4.2; de momento, Burgos)
     const PROVINCIA = 'BURGOS';
 
+    // ---------- Datos precalculados (cálculo diario por lotes) ----------
+    let estadoLote = null;
+    async function leerJSON(ruta) {
+      try {
+        const r = await fetch(ruta, { cache: 'no-cache' });
+        if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return null;
+        return await r.json();
+      } catch (_) { return null; }
+    }
+    // Si la última actualización falló, el mapa enseña el último dato bueno: hay que decirlo.
+    function avisosLote() {
+      if (!estadoLote) return [];
+      const p = estadoLote.provincias?.[PROVINCIA];
+      const horas = (Date.now() - new Date(estadoLote.generado)) / 36e5;
+      const avisos = [];
+      if (horas > 36) avisos.push(`Los datos no se actualizan desde hace ${Math.round(horas / 24)} días.`);
+      if (p && !p.fresco) avisos.push(`La última actualización de esta provincia falló: se muestran los datos anteriores (hasta ${p.fecha_datos ?? '?'}).`);
+      else if (p && !p.aemet) avisos.push('AEMET no respondió en la última actualización: el mapa usa solo el modelo meteorológico (confianza baja).');
+      return avisos;
+    }
+
     // ---------- Arranque ----------
     async function cargar() {
       pintarLeyenda();
       // Solo se enseña la pantalla de carga si la respuesta tarda (con caché es inmediata)
       const temporizador = setTimeout(mostrarCarga, 700);
       try {
-        catalogo = await (await fetch('/api/especies')).json();
+        // Modo estático (GitHub Pages): datos precalculados cada mañana en datos/.
+        // Si no existen (p. ej. en Render), se usa la API como antes.
+        catalogo = await leerJSON('datos/especies.json') || await (await fetch('/api/especies')).json();
+        estadoLote = await leerJSON('datos/estado.json');
         sel.innerHTML = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
         const guardada = leer('especie');
         if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
         pintarMetodo();
 
-        fetch(`/static/provincias/${PROVINCIA}.geojson`).then(r => r.json()).then(g => {
+        fetch(`static/provincias/${PROVINCIA}.geojson`).then(r => r.json()).then(g => {
           const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
           map.fitBounds(contorno.getBounds(), movil() ? { paddingBottomRight: [0, 140] }
                                                        : { paddingTopRight: [330, 0], padding: [20, 20] });
         });
 
-        datos = await pedirMapa();
+        datos = await leerJSON(`datos/mapa/${PROVINCIA}.json`) || await pedirMapa();
         try {
-          const hj = await (await fetch(`/static/habitat/${PROVINCIA}.json`)).json();
+          const hj = await (await fetch(`static/habitat/${PROVINCIA}.json`)).json();
           const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
           const cercana = (la, lo) => datos.celdas.reduce((m, c) =>
             ((c.lat - la) ** 2 + ((c.lon - lo) * 0.74) ** 2 < (m.lat - la) ** 2 + ((m.lon - lo) * 0.74) ** 2 ? c : m));
@@ -652,7 +676,8 @@
           console.warn('Sin capa de hábitat', e);
         }
         estado.textContent = `Datos hasta ${datos.datos_hasta} · clima en ${datos.celdas.length} celdas de ≈ 8 × 11 km` +
-          (habitat ? ` · hábitat en ${habitat.subs.length} subceldas de ≈ 2 km` : '') + '. Pulsa el mapa para ver el detalle.';
+          (habitat ? ` · hábitat en ${habitat.subs.length} subceldas de ≈ 2 km` : '') + '. Pulsa el mapa para ver el detalle.' +
+          (estadoLote ? ` Actualizado el ${new Date(estadoLote.generado).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}.` : '');
         pintarEstaciones();
         pintar();
       } catch (err) {

@@ -147,7 +147,17 @@ async def calcular(provincia: str = "BURGOS") -> dict:
             progreso.terminar()
 
 
-async def _calcular(provincia: str) -> dict:
+async def calcular_lote(provincia: str, series_aemet: dict | None, dias_validacion: int = 60) -> dict:
+    """Cálculo por lotes (scripts/actualizar.py): sin caché ni candado, AEMET ya descargado en bloque.
+
+    Si series_aemet es None (AEMET caído), el mapa se calcula solo con Open-Meteo y confianza baja.
+    """
+    return await _calcular(provincia, series_aemet=series_aemet, dias_validacion=dias_validacion,
+                           sin_aemet=series_aemet is None)
+
+
+async def _calcular(provincia: str, series_aemet: dict | None = None, dias_validacion: int = 90,
+                    sin_aemet: bool = False) -> dict:
     hoy = date.today()
     fin = hoy - timedelta(days=1)
     inicio = fin - timedelta(days=DIAS - 1)
@@ -156,7 +166,9 @@ async def _calcular(provincia: str) -> dict:
     aviso_global = None
     estaciones = []
     try:
-        val = await validacion.validar({provincia}, 90)
+        if sin_aemet:
+            raise RuntimeError("AEMET no disponible en esta actualización")
+        val = await validacion.validar({provincia}, dias_validacion, series_aemet=series_aemet)
         # Las series AEMET de la validación (90 días) cubren de sobra la ventana del mapa
         estaciones = [e for e in val["estaciones"] if e.get("confianza") in NIVELES]
     except Exception as e:  # AEMET caído: el mapa sigue, solo con Open-Meteo y confianza baja

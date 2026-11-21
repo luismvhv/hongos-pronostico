@@ -58,9 +58,44 @@ class OpenMeteoError(Exception):
     pass
 
 
+# --- Limitador de ritmo (solo en el cálculo por lotes) -----------------------------------------
+# Open-Meteo gratuito: < 600 llamadas/min, 5 000/h, 10 000/día. Cuenta cada coordenada como una
+# llamada, y las peticiones de más de 2 semanas o más de 10 variables como fracciones adicionales.
+# RITMO = (por_minuto, por_hora) activa el limitador; None (modo web) lo desactiva.
+RITMO: tuple[int, int] | None = None
+_gasto: list[tuple[float, float]] = []   # (instante, llamadas estimadas)
+GASTO_TOTAL = {"llamadas": 0.0}
+
+
+def coste(params: dict) -> float:
+    """Llamadas que Open-Meteo cuenta para una petición (estimación de su cómputo fraccional)."""
+    n = len(str(params.get("latitude", "")).split(","))
+    dias = (date.fromisoformat(params["end_date"]) - date.fromisoformat(params["start_date"])).days + 1
+    nvars = len(str(params.get("daily") or params.get("hourly") or "x").split(","))
+    return n * max(1.0, dias / 14) * max(1.0, nvars / 10)
+
+
+async def _esperar_turno(c: float) -> None:
+    if not RITMO:
+        return
+    por_min, por_hora = RITMO
+    while True:
+        ahora = time.time()
+        _gasto[:] = [(t, x) for t, x in _gasto if ahora - t < 3600]
+        minuto = sum(x for t, x in _gasto if ahora - t < 60)
+        hora = sum(x for _, x in _gasto)
+        if minuto + c <= por_min and hora + c <= por_hora:
+            _gasto.append((ahora, c))
+            return
+        await asyncio.sleep(5)
+
+
 async def _get(client: httpx.AsyncClient, params: dict):
     """GET con reintentos: el proxy de la sesión y la red móvil cortan conexiones a veces."""
     ultimo = None
+    c = coste(params)
+    await _esperar_turno(c)
+    GASTO_TOTAL["llamadas"] += c
     for intento in range(5):
         try:
             r = await client.get(URL, params=params)
