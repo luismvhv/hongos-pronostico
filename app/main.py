@@ -141,6 +141,29 @@ async def mapa_endpoint(provincia: str = Query("BURGOS")):
         raise HTTPException(status_code=502, detail=str(e))
 
 
+@app.get("/api/aemet/prueba_todas")
+async def prueba_todas(dias: int = Query(5, ge=1, le=62)):
+    """Diagnóstico (fase 4.0): ¿da AEMET todas las estaciones en una petición? Solo recuentos."""
+    import time
+    from collections import Counter
+    fin = date.today() - timedelta(days=3)  # AEMET publica con ~3 días de retraso
+    inicio = fin - timedelta(days=dias - 1)
+    t0 = time.time()
+    try:
+        filas = await aemet.daily_all(inicio, fin)
+    except Exception as e:
+        return {"ok": False, "dias": dias, "error": str(e), "segundos": round(time.time() - t0, 1)}
+    cyl = [f for f in filas if provs.normalizar(f.get("provincia") or "")]
+    return {
+        "ok": True, "dias": dias, "desde": inicio.isoformat(), "hasta": fin.isoformat(),
+        "segundos": round(time.time() - t0, 1), "filas": len(filas),
+        "estaciones": len({f["indicativo"] for f in filas}),
+        "estaciones_cyl": len({f["indicativo"] for f in cyl}),
+        "filas_cyl_por_provincia": dict(Counter(f["provincia"] for f in cyl)),
+        "fechas": sorted({f["fecha"] for f in filas})[:1] + sorted({f["fecha"] for f in filas})[-1:],
+    }
+
+
 @app.get("/api/provincias")
 async def provincias_endpoint():
     """Provincias de Castilla y León disponibles (contorno y, si existe, capa de hábitat)."""

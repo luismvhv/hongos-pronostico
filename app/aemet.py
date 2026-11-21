@@ -191,3 +191,34 @@ async def daily_values(station_id: str, start: date, end: date) -> list[dict]:
         raise SinDatos("Sin datos de AEMET para esa estación y periodo")
     _DIARIOS[clave] = (time.time(), rows)
     return rows
+
+
+def _normalizar_diario(d: dict) -> dict:
+    return {
+        "indicativo": d.get("indicativo"),
+        "provincia": d.get("provincia"),
+        "fecha": d.get("fecha"),
+        "tmed": _to_float(d.get("tmed")),
+        "tmin": _to_float(d.get("tmin")),
+        "tmax": _to_float(d.get("tmax")),
+        "prec": _to_float(d.get("prec")),
+        "hr": _to_float(d.get("hr")) if "hr" in d else None,
+        "sol": _to_float(d.get("sol")) if "sol" in d else None,
+    }
+
+
+async def daily_all(start: date, end: date) -> list[dict]:
+    """Valores diarios de TODAS las estaciones de España en una sola petición (fase 4.0).
+
+    Endpoint .../diarios/datos/fechaini/{ini}/fechafin/{fin}/todasestaciones. Permite pedir toda
+    Castilla y León con 1 petición en vez de ~110 (una por estación). El rango máximo admitido
+    se comprueba con /api/aemet/prueba_todas (ver NOTAS).
+    """
+    url = (
+        f"{BASE}/api/valores/climatologicos/diarios/datos/"
+        f"fechaini/{start.isoformat()}T00:00:00UTC/"
+        f"fechafin/{end.isoformat()}T00:00:00UTC/todasestaciones"
+    )
+    async with httpx.AsyncClient(timeout=120) as client:
+        raw = await _fetch_datos(client, url)
+    return [_normalizar_diario(d) for d in raw]
