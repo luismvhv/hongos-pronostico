@@ -32,3 +32,18 @@ def test_normalizar():
 def test_listado_marca_habitat_disponible():
     l = {p["clave"]: p for p in provincias.listado()}
     assert l["BURGOS"]["habitat"] is True
+
+
+def test_habitat_de_las_9_provincias_encaja_en_las_fronteras():
+    vistas = {}
+    for clave in provincias.PROVINCIAS:
+        h = json.loads(provincias.habitat(clave).read_text())
+        assert h["provincia"] == clave and h["paso_grados"] == 0.02
+        for c in h["celdas"]:
+            lat, lon = c[0], c[1]
+            # malla global: centros en k·0,02 + 0,01 (centésimas impares)
+            assert round(lat * 100) % 2 == 1 and round(abs(lon) * 100) % 2 == 1, (clave, lat, lon)
+            assert (lat, lon) not in vistas, f"subcelda repetida en {clave} y {vistas.get((lat, lon))}"
+            vistas[(lat, lon)] = clave
+            assert 0 <= c[2] + c[3] <= 1.0001      # coníferas + frondosas no superan el 100 %
+    assert len(vistas) > 25000

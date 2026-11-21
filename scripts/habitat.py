@@ -1,6 +1,6 @@
-"""Precalcula la capa de hábitat de Burgos a partir de Copernicus (se ejecuta a mano, no en Render).
+"""Precalcula la capa de hábitat de una provincia a partir de Copernicus (a mano, no en Render).
 
-Salida: static/habitat_burgos.json — submalla de 0,02° (≈ 1,7 × 2,2 km) dentro del contorno
+Salida: static/habitat/<CLAVE>.json — submalla de 0,02° (≈ 1,7 × 2,2 km) dentro del contorno
 provincial, con, por subcelda:
   conifera, frondosa : fracción de la superficie con bosque de coníferas / frondosas
                        (Copernicus HRL Forest Type 2018, 10 m; bosque = cubierta arbórea ≥ 10 %)
@@ -16,9 +16,12 @@ Fuentes y acceso (comprobado nov-2026):
 - DEM: COG públicos en AWS, https://copernicus-dem-90m.s3.amazonaws.com
 Ambos con licencia libre de Copernicus (atribución).
 
+La malla es global y está alineada a múltiplos de 0,02° (centros en k·0,02 + 0,01): las subceldas de
+provincias vecinas coinciden en la frontera y cada una cae en una sola celda de clima de 0,1°.
+
 Uso (dependencias solo de desarrollo, no van a requirements.txt):
   python -m venv /tmp/venv && /tmp/venv/bin/pip install rasterio numpy
-  /tmp/venv/bin/python scripts/habitat_burgos.py --cache /tmp/copernicus
+  /tmp/venv/bin/python scripts/habitat.py --cache /tmp/copernicus --provincia SORIA   (o --todas)
 """
 import argparse
 import json
@@ -34,8 +37,8 @@ from rasterio.merge import merge
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 from app.mapa import _dentro, _poligonos  # noqa: E402  (mismo contorno y test que el mapa)
+from app.provincias import PROVINCIAS, habitat as ruta_habitat  # noqa: E402
 
-BBOX = (-4.36, 41.44, -2.50, 43.21)   # lon_min, lat_min, lon_max, lat_max (contorno IGN + margen)
 RES = 0.001                           # grados por píxel en la descarga HRL
 PASO = 0.02                           # submalla de hábitat
 HRL = "https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic/{}/ImageServer/exportImage"
@@ -51,17 +54,25 @@ def descargar(url: str, destino: Path) -> Path:
     return destino
 
 
-def hrl(nombre: str, cache: Path) -> np.ndarray:
+def bbox_de(anillos) -> tuple:
+    """Recuadro del contorno ampliado hasta múltiplos de PASO (malla global alineada)."""
+    xs = [c[0] for a in anillos for c in a]
+    ys = [c[1] for a in anillos for c in a]
+    al = lambda v, f: round(f(v / PASO) * PASO, 2)
+    return (al(min(xs), math.floor), al(min(ys), math.floor), al(max(xs), math.ceil), al(max(ys), math.ceil))
+
+
+def hrl(nombre: str, cache: Path, BBOX: tuple, sufijo: str) -> np.ndarray:
     w = round((BBOX[2] - BBOX[0]) / RES)
     h = round((BBOX[3] - BBOX[1]) / RES)
     url = (HRL.format(nombre) + f"?bbox={BBOX[0]},{BBOX[1]},{BBOX[2]},{BBOX[3]}&bboxSR=4326&imageSR=4326"
            f"&size={w},{h}&format=tiff&pixelType=U8&interpolation=RSP_NearestNeighbor&f=image")
-    with rasterio.open(descargar(url, cache / f"{nombre}.tif")) as r:
+    with rasterio.open(descargar(url, cache / f"{nombre}_{sufijo}.tif")) as r:
         assert abs(r.transform[0] - RES) < 1e-9 and abs(r.bounds.left - BBOX[0]) < 1e-6, "rejilla inesperada"
         return r.read(1)
 
 
-def dem(cache: Path):
+def dem(cache: Path, BBOX: tuple):
     rutas = []
     for la in range(math.floor(BBOX[1]), math.floor(BBOX[3]) + 1):
         for lo in range(math.floor(BBOX[0]), math.floor(BBOX[2]) + 1):
@@ -83,23 +94,21 @@ def dem(cache: Path):
     return z, pendiente, aspecto, t
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--cache", type=Path, default=Path("/tmp/copernicus"))
-    args = ap.parse_args()
-    args.cache.mkdir(parents=True, exist_ok=True)
+def calcular(provincia: str, cache: Path):
+    anillos = _poligonos(provincia)
+    BBOX = bbox_de(anillos)
+    tipo = hrl(CAPAS["tipo"], cache, BBOX, provincia)          # 0 no bosque, 1 frondosas, 2 coníferas
+    dens = hrl(CAPAS["densidad"], cache, BBOX, provincia)      # 0-100 %
+    prad = hrl(CAPAS["pradera"], cache, BBOX, provincia)       # 0/1
+    z, pend, asp, t = dem(cache, BBOX)
 
-    tipo = hrl(CAPAS["tipo"], args.cache)          # 0 no bosque, 1 frondosas, 2 coníferas
-    dens = hrl(CAPAS["densidad"], args.cache)      # 0-100 %
-    prad = hrl(CAPAS["pradera"], args.cache)       # 0/1
-    z, pend, asp, t = dem(args.cache)
-
-    anillos = _poligonos("BURGOS")
     celdas = []
-    lat = BBOX[1] + PASO / 2
-    while lat < BBOX[3]:
-        lon = BBOX[0] + PASO / 2
-        while lon < BBOX[2]:
+    nlat = round((BBOX[3] - BBOX[1]) / PASO)
+    nlon = round((BBOX[2] - BBOX[0]) / PASO)
+    for i in range(nlat):
+        lat = round(BBOX[1] + PASO * i + PASO / 2, 3)
+        for j in range(nlon):
+            lon = round(BBOX[0] + PASO * j + PASO / 2, 3)
             if any(_dentro(lon, lat, a) for a in anillos):
                 # ventana HRL (fila 0 = norte)
                 c0 = int(round((lon - PASO / 2 - BBOX[0]) / RES)); c1 = c0 + int(round(PASO / RES))
@@ -122,11 +131,9 @@ def main():
                     round(float(pp.mean()), 1),
                     round(float(norte.mean()), 3),
                 ])
-            lon += PASO
-        lat += PASO
 
     salida = {
-        "provincia": "BURGOS", "paso_grados": PASO,
+        "provincia": provincia, "paso_grados": PASO,
         "campos": ["lat", "lon", "conifera", "frondosa", "pradera", "densidad", "altitud", "pendiente", "umbria"],
         "celdas": celdas,
         "fuentes": [
@@ -134,11 +141,23 @@ def main():
             "Copernicus DEM GLO-90 (ESA / Airbus), vía AWS Open Data",
         ],
     }
-    destino = RAIZ / "static" / "habitat_burgos.json"
+    destino = ruta_habitat(provincia)
+    destino.parent.mkdir(exist_ok=True)
     destino.write_text(json.dumps(salida, separators=(",", ":")))
     tot = np.array([c[2:5] for c in celdas])
-    print(f"{len(celdas)} subceldas -> {destino} ({destino.stat().st_size // 1024} KB); "
+    print(f"{provincia}: {len(celdas)} subceldas -> {destino} ({destino.stat().st_size // 1024} KB); "
           f"medias conífera {tot[:, 0].mean():.3f}, frondosa {tot[:, 1].mean():.3f}, pradera {tot[:, 2].mean():.3f}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cache", type=Path, default=Path("/tmp/copernicus"))
+    ap.add_argument("--provincia", help="Clave AEMET, p. ej. SORIA")
+    ap.add_argument("--todas", action="store_true", help="Las 9 provincias de Castilla y León")
+    args = ap.parse_args()
+    args.cache.mkdir(parents=True, exist_ok=True)
+    for p in (PROVINCIAS if args.todas else [args.provincia]):
+        calcular(p, args.cache)
 
 
 if __name__ == "__main__":
