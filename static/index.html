@@ -550,6 +550,11 @@
     }
 
     async function consultarProgreso() {
+      if (!modoAPI) {   // web estática: no hay cálculo en curso que consultar, solo descarga
+        $('cargaTitulo').textContent = 'Casi está…';
+        $('cargaFase').textContent = 'Descargando el mapa del día';
+        return ponerProgreso(90, false);
+      }
       try {
         const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
         const p = await (await fetch('/api/mapa/progreso', { signal: ctl.signal })).json();
@@ -619,6 +624,7 @@
 
     // ---------- Datos precalculados (cálculo diario por lotes) ----------
     let estadoLote = null;
+    let modoAPI = false;   // true solo si no hay datos precalculados (Render)
     async function leerJSON(ruta) {
       try {
         const r = await fetch(ruta, { cache: 'no-cache' });
@@ -647,6 +653,7 @@
         // Modo estático (GitHub Pages): datos precalculados cada mañana en datos/.
         // Si no existen (p. ej. en Render), se usa la API como antes.
         estadoLote = await leerJSON('datos/estado.json');   // si no existe: modo API (Render)
+        modoAPI = !estadoLote;
         catalogo = (estadoLote && await leerJSON('datos/especies.json')) || await (await fetch('/api/especies')).json();
         sel.innerHTML = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
         const guardada = leer('especie');
