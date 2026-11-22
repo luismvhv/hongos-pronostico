@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Favorabilidad de setas — Burgos</title>
+  <title>Setas en Castilla y León</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root { --tinta: #1f1f1d; --tinta2: #55554f; --borde: #d8d6cf; --fondo: #ffffff; --suave: #f4f3ef;
@@ -125,7 +125,47 @@
     #cargaChiste { font-size: 13px; color: var(--tinta2); font-style: italic; margin: 10px 0 6px; min-height: 2.6em; transition: opacity .3s; }
     .pista { font-size: 11.5px; color: #8a8880; margin: 4px 0 0; }
 
+    /* ---------- Selector de provincias ---------- */
+    .cambiar { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 6px; border: 1px solid var(--borde);
+               background: #fff; border-radius: 8px; padding: 4px 8px; font-size: 13px; cursor: pointer; color: var(--tinta); }
+    .cambiar:hover { background: var(--suave); }
+    #selector { position: absolute; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center;
+                background: rgba(31, 36, 42, .45); padding: 16px; overflow: auto; }
+    #selector[hidden] { display: none; }
+    .sel-tarjeta { background: #fff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.3); width: 620px; max-width: 100%;
+                   padding: 18px 20px 16px; max-height: 100%; overflow: auto; position: relative; }
+    .sel-tarjeta h2 { font-size: 20px; margin: 0 0 2px; }
+    .sel-sub { margin: 0 0 10px; color: var(--tinta2); font-size: 14px; }
+    .sel-fila { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+    .sel-fila > div { flex: 1; min-width: 200px; }
+    .sel-fila label { font-size: 13px; color: var(--tinta2); display: block; margin-bottom: 4px; }
+    #mapaCyl { width: 100%; height: auto; display: block; margin: 10px 0 4px; touch-action: manipulation; }
+    #mapaCyl .prov { stroke: #ffffff; stroke-width: 1.4; cursor: pointer; transition: filter .15s; fill-rule: evenodd; }
+    #mapaCyl .prov:hover, #mapaCyl .prov:focus-visible { stroke: #1f1f1d; stroke-width: 2.4; outline: none; filter: brightness(.95); }
+    #mapaCyl .prov.ultima { stroke: #1f1f1d; stroke-width: 2; stroke-dasharray: 5 3; }
+    #mapaCyl text { pointer-events: none; font-family: inherit; text-anchor: middle; paint-order: stroke;
+                    stroke: rgba(255,255,255,.85); stroke-width: 3px; stroke-linejoin: round; fill: var(--tinta); }
+    #mapaCyl .nombre { font-size: 13px; font-weight: 600; }
+    #mapaCyl .valor { font-size: 11.5px; }
+    .sel-leyenda { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--tinta2); flex-wrap: wrap; }
+    .sel-leyenda .rampa { width: 160px; }
+    .sel-lista { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+    .sel-lista button { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 8px 10px;
+                        border: 1px solid var(--borde); border-radius: 8px; background: #fff; cursor: pointer;
+                        font-size: 14px; color: var(--tinta); font-family: inherit; }
+    .sel-lista button:hover, .sel-lista button:focus-visible { background: var(--suave); outline: 2px solid #1c5cab; outline-offset: -1px; }
+    .sel-lista .chip { min-width: 30px; text-align: center; border-radius: 6px; padding: 1px 6px; font-size: 12.5px;
+                       font-weight: 600; border: 1px solid #c9c7bf; }
+    .sel-lista button.ultima { border-color: #1f1f1d; }
+    #selCerrar { position: absolute; top: 10px; right: 12px; border: none; background: none; font-size: 22px; cursor: pointer;
+                 color: var(--tinta2); line-height: 1; }
+
     @media (max-width: 600px) {
+      .sel-lista { grid-template-columns: repeat(2, 1fr); }
+      #mapaCyl .nombre { font-size: 22px; }   /* unidades del SVG (600 de ancho → ~340 px en móvil) */
+      #mapaCyl .valor { font-size: 20px; font-weight: 600; }
+      #selector { padding: 8px; align-items: flex-start; }
+      .sel-tarjeta { padding: 14px 14px 12px; }
       #panel { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 55%; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -140,11 +180,12 @@
 
   <div id="panel">
     <div class="cabecera">
-      <h1>Favorabilidad climática de setas · Burgos</h1>
+      <h1>Setas · <span id="nombreProv">Castilla y León</span></h1>
       <button id="plegar" aria-expanded="true" aria-controls="cuerpo" title="Plegar o desplegar la leyenda">
         <span class="flecha" aria-hidden="true">▾</span><span id="plegarTxt">Plegar</span>
       </button>
     </div>
+    <button type="button" class="cambiar" id="cambiarProv"><span aria-hidden="true">📍</span> Cambiar provincia</button>
     <label for="especie">Especie</label>
     <select id="especie"></select>
     <div class="capas" role="radiogroup" aria-label="Qué se muestra">
@@ -190,6 +231,27 @@
         <p class="nota">Las fuentes científicas se han consultado por sus resúmenes; los umbrales marcados
           como supuestos se calibrarán con partes micológicos reales.</p>
       </details>
+    </div>
+  </div>
+
+  <!-- Selector de provincias -->
+  <div id="selector" hidden role="dialog" aria-modal="true" aria-labelledby="selTitulo">
+    <div class="sel-tarjeta">
+      <button type="button" id="selCerrar" aria-label="Cerrar y volver al mapa" hidden>×</button>
+      <h2 id="selTitulo">¿Dónde quieres buscar setas?</h2>
+      <p class="sel-sub">Toca una provincia de Castilla y León. El color es lo favorable que está hoy para la especie elegida.</p>
+      <div class="sel-fila">
+        <div>
+          <label for="selEspecie">Especie</label>
+          <select id="selEspecie"></select>
+        </div>
+        <div class="sel-leyenda">
+          <span class="rampa" id="selRampa"></span><span>0 · desfavorable → favorable · 100</span>
+        </div>
+      </div>
+      <svg id="mapaCyl" role="group" aria-label="Mapa de las provincias de Castilla y León"></svg>
+      <div class="sel-lista" id="selLista" role="list"></div>
+      <p class="nota" id="selNota"></p>
     </div>
   </div>
 
@@ -249,7 +311,7 @@
     const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
     const leer = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
 
-    const map = L.map('map', { renderer: L.svg() }).setView([42.35, -3.7], 8);
+    const map = L.map('map', { renderer: L.svg() }).setView([41.75, -4.6], 7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
@@ -619,8 +681,14 @@
       }
     }
 
-    // Provincia mostrada (el selector llegará en la fase 4.2; de momento, Burgos)
-    const PROVINCIA = 'BURGOS';
+    // Provincia mostrada (null hasta que se elige en el selector o llega en ?provincia=)
+    let PROVINCIA = null;
+    const NOMBRES = { AVILA: 'Ávila', BURGOS: 'Burgos', LEON: 'León', PALENCIA: 'Palencia', SALAMANCA: 'Salamanca',
+                      SEGOVIA: 'Segovia', SORIA: 'Soria', VALLADOLID: 'Valladolid', ZAMORA: 'Zamora' };
+    const normalizarProv = t => {
+      const k = (t || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return NOMBRES[k] ? k : null;
+    };
 
     // ---------- Datos precalculados (cálculo diario por lotes) ----------
     let estadoLote = null;
@@ -645,43 +713,159 @@
     }
 
     // ---------- Arranque ----------
-    async function cargar() {
+    let resumenCyl = null, contornoCyl = null, capaContorno = null;
+
+    async function iniciar() {
       pintarLeyenda();
-      // Solo se enseña la pantalla de carga si la respuesta tarda (con caché es inmediata)
-      const temporizador = setTimeout(mostrarCarga, 700);
+      $('selRampa').innerHTML = CLASES.map(c => `<span style="background:${c.color}"></span>`).join('');
+      $('selRampa').classList.add('rampa');
       try {
         // Modo estático (GitHub Pages): datos precalculados cada mañana en datos/.
         // Si no existen (p. ej. en Render), se usa la API como antes.
-        estadoLote = await leerJSON('datos/estado.json');   // si no existe: modo API (Render)
+        estadoLote = await leerJSON('datos/estado.json');
         modoAPI = !estadoLote;
         catalogo = (estadoLote && await leerJSON('datos/especies.json')) || await (await fetch('/api/especies')).json();
-        sel.innerHTML = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+        const opciones = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+        sel.innerHTML = opciones;
+        $('selEspecie').innerHTML = opciones;
         const guardada = leer('especie');
         if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
+        $('selEspecie').value = sel.value;
         pintarMetodo();
+        resumenCyl = estadoLote ? await leerJSON('datos/resumen_cyl.json') : null;
+        contornoCyl = await leerJSON('static/provincias/CYL.geojson');
+      } catch (err) {
+        estado.textContent = 'Error al cargar: ' + err.message;
+        plegar(false, false);
+        return;
+      }
+      const pedida = normalizarProv(new URLSearchParams(location.search).get('provincia'));
+      history.replaceState({ provincia: pedida }, '', location.href);
+      if (pedida) cargarProvincia(pedida);
+      else mostrarSelector();
+    }
 
-        fetch(`static/provincias/${PROVINCIA}.geojson`).then(r => r.json()).then(g => {
-          const contorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
-          map.fitBounds(contorno.getBounds(), movil() ? { paddingBottomRight: [0, 140] }
-                                                       : { paddingTopRight: [330, 0], padding: [20, 20] });
+    // ---------- Selector de provincias ----------
+    function valorProvincia(clave) {
+      const e = resumenCyl?.provincias?.[clave]?.especies?.[sel.value];
+      if (!e) return null;
+      return capaSel() === 'clima' ? e.clima_medio : e.con_habitat_medio;
+    }
+
+    function pintarSelector() {
+      if (!contornoCyl) return;
+      const ultima = leer('provincia');
+      const feats = contornoCyl.features;
+      // Proyección equirectangular con corrección por la latitud media (suficiente a esta escala)
+      const pts = feats.flatMap(f => (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates.flat(2) : f.geometry.coordinates.flat(1)));
+      const lons = pts.map(p => p[0]), lats = pts.map(p => p[1]);
+      const [x0, x1, y0, y1] = [Math.min(...lons), Math.max(...lons), Math.min(...lats), Math.max(...lats)];
+      const kx = Math.cos((y0 + y1) / 2 * Math.PI / 180), ancho = 600, esc = ancho / ((x1 - x0) * kx);
+      const alto = Math.round((y1 - y0) * esc);
+      const X = lon => ((lon - x0) * kx * esc).toFixed(1), Y = lat => ((y1 - lat) * esc).toFixed(1);
+      const svg = $('mapaCyl');
+      svg.setAttribute('viewBox', `-4 -4 ${ancho + 8} ${alto + 8}`);
+      let paths = '', textos = '';
+      for (const f of feats) {
+        const clave = f.properties.clave;
+        const polys = f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [f.geometry.coordinates];
+        const d = polys.map(poly => poly.map(anillo => 'M' + anillo.map(([lo, la]) => `${X(lo)},${Y(la)}`).join('L') + 'Z').join('')).join('');
+        const v = valorProvincia(clave);
+        const color = v == null ? '#e3e1da' : colorDe(v);
+        const etiqueta = `${NOMBRES[clave]}${v == null ? '' : `, índice medio ${Math.round(v)} de 100`}`;
+        paths += `<path class="prov${clave === ultima ? ' ultima' : ''}" data-clave="${clave}" d="${d}" fill="${color}"
+                   tabindex="0" role="button" aria-label="${etiqueta}"><title>${etiqueta}</title></path>`;
+        // Etiqueta en el centroide del anillo exterior más grande
+        const mayor = polys.map(p => p[0]).reduce((a, b) => (b.length > a.length ? b : a));
+        let A = 0, cx = 0, cy = 0;
+        for (let i = 0, j = mayor.length - 1; i < mayor.length; j = i++) {
+          const [xa, ya] = [+X(mayor[j][0]), +Y(mayor[j][1])], [xb, yb] = [+X(mayor[i][0]), +Y(mayor[i][1])];
+          const c = xa * yb - xb * ya; A += c; cx += (xa + xb) * c; cy += (ya + yb) * c;
+        }
+        cx /= 3 * A; cy /= 3 * A;
+        textos += `<text class="nombre" x="${cx.toFixed(0)}" y="${(cy - 2).toFixed(0)}">${NOMBRES[clave]}</text>` +
+                  (v == null ? '' : `<text class="valor" x="${cx.toFixed(0)}" y="${(cy + (movil() ? 20 : 13)).toFixed(0)}">${Math.round(v)}</text>`);
+      }
+      svg.innerHTML = paths + textos;
+      svg.querySelectorAll('.prov').forEach(p => {
+        p.addEventListener('click', () => elegirProvincia(p.dataset.clave));
+        p.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegirProvincia(p.dataset.clave); } });
+      });
+      // Lista accesible (y más cómoda en móvil), ordenada de más a menos favorable
+      const claves = Object.keys(NOMBRES).sort((a, b) => (valorProvincia(b) ?? -1) - (valorProvincia(a) ?? -1));
+      $('selLista').innerHTML = claves.map(k => {
+        const v = valorProvincia(k);
+        return `<button type="button" role="listitem" data-clave="${k}" class="${k === ultima ? 'ultima' : ''}">
+          <span>${NOMBRES[k]}${k === ultima ? ' <small>(última)</small>' : ''}</span>
+          ${v == null ? '' : `<span class="chip" style="background:${colorDe(v)}">${Math.round(v)}</span>`}</button>`;
+      }).join('');
+      $('selLista').querySelectorAll('button').forEach(b => b.addEventListener('click', () => elegirProvincia(b.dataset.clave)));
+      const modo = capaSel() === 'clima' ? 'media del clima' : 'media donde hay hábitat de la especie';
+      $('selNota').textContent = resumenCyl
+        ? `Valor de cada provincia: ${modo}. Datos del ${new Date(resumenCyl.generado).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}; se actualizan cada mañana.`
+        : 'El resumen por provincia solo está disponible en la web publicada; elige una provincia para calcularla.';
+    }
+
+    function mostrarSelector() {
+      pintarSelector();
+      $('selCerrar').hidden = !PROVINCIA;
+      $('selector').hidden = false;
+      ($('selLista').querySelector('button.ultima') || $('selLista').querySelector('button'))?.focus({ preventScroll: true });
+    }
+    function cerrarSelector() {
+      if (!PROVINCIA) return;          // sin provincia elegida no hay mapa al que volver
+      $('selector').hidden = true;
+      $('cambiarProv').focus({ preventScroll: true });
+    }
+
+    function elegirProvincia(clave) {
+      guardar('provincia', clave);
+      $('selector').hidden = true;
+      if (clave !== PROVINCIA) {
+        history.pushState({ provincia: clave }, '', `${location.pathname}?provincia=${clave}`);
+        cargarProvincia(clave);
+      }
+    }
+
+    async function cargarProvincia(clave) {
+      PROVINCIA = clave;
+      $('nombreProv').textContent = NOMBRES[clave];
+      document.title = `Setas en ${NOMBRES[clave]}`;
+      map.closePopup();
+      capa.clearLayers(); capaTrama.clearLayers(); capaEst.clearLayers();
+      if (capaContorno) { map.removeLayer(capaContorno); capaContorno = null; }
+      datos = null; habitat = null;
+      avisoConf.hidden = true;
+      estado.textContent = 'Cargando…';
+      // Solo se enseña la pantalla de carga si la respuesta tarda (con datos precalculados es inmediata)
+      const temporizador = setTimeout(mostrarCarga, 700);
+      try {
+        fetch(`static/provincias/${clave}.geojson`).then(r => r.json()).then(g => {
+          if (PROVINCIA !== clave) return;   // se cambió de provincia mientras tanto
+          capaContorno = L.geoJSON(g, { style: { color: '#1f1f1d', weight: 2, fill: false }, interactive: false }).addTo(map);
+          map.fitBounds(capaContorno.getBounds(), movil() ? { paddingBottomRight: [0, 140] }
+                                                          : { paddingTopRight: [330, 0], padding: [20, 20] });
         });
 
-        datos = (estadoLote && await leerJSON(`datos/mapa/${PROVINCIA}.json`)) || await pedirMapa();
+        const d = (estadoLote && await leerJSON(`datos/mapa/${clave}.json`)) || await pedirMapa();
+        if (PROVINCIA !== clave) return;
+        datos = d;
         try {
-          const hj = await (await fetch(`static/habitat/${PROVINCIA}.json`)).json();
+          const hj = await (await fetch(`static/habitat/${clave}.json`)).json();
           const porClave = new Map(datos.celdas.map(c => [`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, c]));
           const cercana = (la, lo) => datos.celdas.reduce((m, c) =>
             ((c.lat - la) ** 2 + ((c.lon - lo) * 0.74) ** 2 < (m.lat - la) ** 2 + ((m.lon - lo) * 0.74) ** 2 ? c : m));
           habitat = { paso_grados: hj.paso_grados, subs: hj.celdas.map(f => {
             const sub = Object.fromEntries(hj.campos.map((k, i) => [k, f[i]]));
-            const clave = `${(Math.floor(sub.lat * 10 + 1e-9) / 10 + 0.05).toFixed(2)},${(Math.floor(sub.lon * 10 + 1e-9) / 10 + 0.05).toFixed(2)}`;
-            sub.padre = porClave.get(clave) || cercana(sub.lat, sub.lon);
+            const k = `${(Math.floor(sub.lat * 10 + 1e-9) / 10 + 0.05).toFixed(2)},${(Math.floor(sub.lon * 10 + 1e-9) / 10 + 0.05).toFixed(2)}`;
+            sub.padre = porClave.get(k) || cercana(sub.lat, sub.lon);
             return sub;
           }) };
         } catch (e) {
           habitat = null;   // sin capa de hábitat se muestra solo el clima
           console.warn('Sin capa de hábitat', e);
         }
+        if (PROVINCIA !== clave) return;
         estado.textContent = `Datos hasta ${datos.datos_hasta} · clima en ${datos.celdas.length} celdas de ≈ 8 × 11 km` +
           (habitat ? ` · hábitat en ${habitat.subs.length} subceldas de ≈ 2 km` : '') + '. Pulsa el mapa para ver el detalle.' +
           (estadoLote ? ` Actualizado el ${new Date(estadoLote.generado).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}.` : '');
@@ -695,11 +879,26 @@
         ocultarCarga();
       }
     }
-    sel.addEventListener('change', () => { guardar('especie', sel.value); pintar(); pintarMetodo(); });
+
+    $('cambiarProv').addEventListener('click', mostrarSelector);
+    $('selCerrar').addEventListener('click', cerrarSelector);
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !$('selector').hidden) cerrarSelector(); });
+    $('selector').addEventListener('click', ev => { if (ev.target === $('selector')) cerrarSelector(); });
+    $('selEspecie').addEventListener('change', () => {
+      sel.value = $('selEspecie').value; guardar('especie', sel.value);
+      pintarSelector(); pintar(); pintarMetodo();
+    });
+    window.addEventListener('popstate', ev => {
+      const clave = normalizarProv(new URLSearchParams(location.search).get('provincia'));
+      if (clave) { $('selector').hidden = true; if (clave !== PROVINCIA) cargarProvincia(clave); }
+      else { mostrarSelector(); }
+    });
+
+    sel.addEventListener('change', () => { guardar('especie', sel.value); $('selEspecie').value = sel.value; pintar(); pintarMetodo(); });
     ocultarBaja.addEventListener('change', pintar);
     document.querySelectorAll('input[name="capa"]').forEach(r => r.addEventListener('change', () => { guardar('capa', capaSel()); pintar(); }));
     if (leer('capa') === 'clima') document.querySelector('input[value="clima"]').checked = true;
-    cargar();
+    iniciar();
   </script>
 </body>
 </html>
