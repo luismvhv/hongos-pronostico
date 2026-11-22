@@ -65,7 +65,7 @@ requirements.txt  .env.example  .gitignore  NOTAS.md
 ### Endpoints
 | Ruta | Estado | Qué hace |
 |---|---|---|
-| `GET /` | ✅ | Mapa de calor de Burgos por especie |
+| `GET /` | ✅ | Mapa de calor de Burgos por especie (Render, modo API; la web principal es GitHub Pages) |
 | `GET /api/mapa/progreso` | ✅ | Fase y avance del cálculo en curso (pantalla de carga) |
 | `GET /api/mapa?provincia=BURGOS` | ✅ | Celdas con índice por especie, indicadores, confianza y aviso |
 | `GET /api/estaciones?provincias=BURGOS,SORIA` | ✅ verificado | Inventario AEMET con lat/lon decimales |
@@ -497,7 +497,7 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   `scripts/habitat_burgos.py` → `habitat.py --provincia` (los HRL de la región CyL ampliada ya se
   descargaron para GBIF: reutilizables) y DEM. Comprobar el endpoint AEMET de valores diarios de
   **todas las estaciones** en una sola petición (rango limitado) para no pedir estación a estación.
-- **4.1 Cálculo por lotes — ✅ HECHO (falta activar Pages).** Un script `actualizar.py`
+- **4.1 Cálculo por lotes — ✅ HECHO y publicado en https://luismvhv.github.io/hongos-pronostico/** Un script `actualizar.py`
   que una vez al día (tras la publicación de AEMET) calcula las 9 provincias y escribe un JSON por
   provincia (+ resumen CyL) con fecha y versión. Ejecutado por **GitHub Actions programado** (la clave
   AEMET como *secret* del repositorio, que pone Luis; nunca en el código). Historial incremental de
@@ -553,6 +553,13 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   incremental: pedir solo los últimos días).
 - Publicación en **GitHub Pages** (repo público): requiere activar Pages una vez en
   Settings → Pages → Source: "GitHub Actions". URL: https://luismvhv.github.io/hongos-pronostico/
+- **Publicado (22-nov-2026)**: Pages activado por Luis; run 45014123003 (cálculo completo, 1 465 s,
+  9/9 provincias frescas con AEMET, datos hasta 21-nov, AEMET en 4 peticiones / 99 estaciones / último
+  dato 18-nov, ≈ 4 226 llamadas Open-Meteo, no degradado). Un push posterior (run 45016247608) solo
+  republicó la web reutilizando los datos: **31 s**. Web verificada desde la sesión (host
+  `luismvhv.github.io` añadido a la red): carga en 0,8 s, sin llamadas a la API, sin errores.
+- El cron del 22-nov (primer día) **no se disparó**: GitHub a veces tarda en activar un `schedule`
+  recién añadido. Comprobar que el del 23-nov sí corre; si no, revisar en la pestaña Actions.
 - Frontend: lee `datos/estado.json`; si existe (Pages) usa los datos precalculados (carga en ~0,4 s,
   sin pantalla de 2 min); si no (Render), usa la API como antes. Avisa si la provincia no se pudo
   actualizar, si AEMET no respondió o si los datos tienen > 36 h. Rutas relativas (`static/...`).
