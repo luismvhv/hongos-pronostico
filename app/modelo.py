@@ -342,6 +342,8 @@ HABITAT = {
 def habitat(especie: str, sub: dict) -> float:
     """Factor de hábitat 0-1 de una subcelda (dict con conifera, frondosa, pradera)."""
     h = HABITAT[especie]
+    if not h["capas"]:
+        return 1.0   # especie sin preferencia clara de hábitat en GBIF: no se filtra
     frac = sum(peso * (sub.get(capa) or 0) for capa, peso in h["capas"].items())
     return round(min(1.0, frac / h["saturacion"]), 3)
 
@@ -392,9 +394,10 @@ METODO = [
     "Hábitat (Copernicus): en una malla fina de unos 2 km se mira qué parte del terreno es pinar, "
     "bosque de frondosas o pradera, y se multiplica por el clima de su celda. Una zona sin el árbol "
     "de la especie queda a 0 aunque el tiempo sea perfecto. Se puede ver también solo el clima.",
-    "Validación con 2.400 hallazgos reales (GBIF): el hábitat tiene señal en las 7 especies; la "
-    "temporada se ha ajustado a los meses reales; el efecto del tiempo reciente solo se ha demostrado "
-    "en algunas especies (se indica junto al selector).",
+    "Validación con hallazgos reales (GBIF): en las 7 especies iniciales el hábitat tiene señal, la "
+    "temporada se ajustó a los meses reales y el efecto del tiempo se comprobó (demostrado solo en "
+    "algunas). En las 24 especies añadidas, la temporada y el hábitat salen de sus hallazgos; su "
+    "respuesta al tiempo es una plantilla por grupo de especies, aún sin comprobar.",
     "No es una probabilidad calibrada: no distingue la especie de árbol (solo coníferas o frondosas), "
     "ni el suelo, ni la edad del bosque.",
 ]
@@ -412,6 +415,19 @@ def _validacion() -> dict:
 
 
 def validacion_especie(sp: str) -> dict | None:
+    if sp in PERFILES_GBIF:   # especie de la ampliación: hábitat y temporada desde GBIF, clima sin evaluar
+        pv = PERFILES_GBIF[sp]["validacion"]
+        sin_filtro = not HABITAT[sp]["capas"]
+        auc = pv["habitat"]["auc"]
+        return {
+            "habitat": {"nivel": "sin preferencia" if sin_filtro else
+                        ("buena" if auc >= 0.65 else "moderada" if auc >= 0.6 else "débil"),
+                        "auc": auc, "n": pv["habitat"]["n"], "pct_sin_habitat": pv["habitat"]["pct_sin_habitat"],
+                        "pct_territorio_sin_habitat": None},
+            "clima": {"nivel": "sin evaluar", "gana_pct": None, "p": None, "n_hallazgos": 0, "n_pares": 0},
+            "temporada": {"n": pv["temporada"]["n"]},
+            "fecha": _PERFILES.get("generado"),
+        }
     v = _validacion()
     if not v:
         return None
@@ -440,6 +456,38 @@ def catalogo() -> dict:
         fe = FUENTES_ESPECIE.get(k, {})
         especies.append({"id": k, "nombre": p["nombre"], "grupo": p["grupo"], "resumen": p["fuentes"],
                          "fuentes": fe.get("fuentes", []), "supuestos": fe.get("supuestos"),
-                         "habitat": HABITAT[k], "validacion": validacion_especie(k)})
+                         "habitat": HABITAT[k], "validacion": validacion_especie(k),
+                         "confusiones": CONFUSIONES.get(k), "ampliacion": k in PERFILES_GBIF})
     return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES,
             "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"], "fuentes_validacion": ["gbif"]}
+
+
+# --- Ampliación a todas las setas recolectables (nov-2026) -------------------------------------
+# Temporada y hábitat: DATO (hallazgos de GBIF, scripts/perfiles_gbif.py → app/perfiles_gbif.json).
+# Clima: SUPUESTO por grupo funcional (app/catalogo_especies.GRUPOS), pendiente de calibrar.
+from app.catalogo_especies import CONFUSIONES, GRUPOS, NUEVAS  # noqa: E402
+
+_PERFILES = json.loads((Path(__file__).resolve().parent / "perfiles_gbif.json").read_text())
+PERFILES_GBIF = _PERFILES["especies"]
+
+for _id, _e in NUEVAS.items():
+    _g = GRUPOS[_e["grupo"]]
+    _p = PERFILES_GBIF[_id]
+    ESPECIES[_id] = {
+        "nombre": _e["nombre"],
+        "grupo": _g["texto"],
+        "fenologia": {int(m): w for m, w in _p["fenologia"].items()},
+        "lluvia": _g["lluvia"],
+        "temp": tuple(_e.get("temp", _g["temp"])),
+        "dias_t": _g["dias_t"],
+        "helada": _e.get("helada", _g["helada"]),
+        "fuentes": f"Temporada y hábitat calculados con {_p['validacion']['temporada']['n']} hallazgos reales de "
+                   f"GBIF en Castilla y León y alrededores. Clima: plantilla del grupo «{_g['texto']}».",
+    }
+    HABITAT[_id] = _p["habitat"]
+    FUENTES_ESPECIE[_id] = {
+        "fuentes": [],
+        "supuestos": f"Todo el comportamiento frente al tiempo (rango de temperatura, lluvia necesaria y su "
+                     f"retraso, tolerancia a heladas) es una plantilla del grupo «{_g['texto']}», aún sin "
+                     f"calibrar con datos de esta especie.",
+    }

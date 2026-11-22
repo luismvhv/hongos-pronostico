@@ -132,6 +132,13 @@ async def main():
     if args.reutilizar and not est:
         print("No hay datos publicados que reutilizar: se hace el cálculo completo", flush=True)
     if est:
+        # Si el código ha cambiado el catálogo de especies, los datos publicados ya no valen
+        muestra = previo(args.previo, "datos/mapa/BURGOS.json")
+        publicadas = set(muestra["celdas"][0]["especies"]) if muestra and muestra.get("celdas") else set()
+        if publicadas != set(modelo.ESPECIES):
+            print(f"El catálogo cambió ({len(publicadas)} → {len(modelo.ESPECIES)} especies): cálculo completo", flush=True)
+            est = None
+    if est:
         res = previo(args.previo, "datos/resumen_cyl.json")
         faltan = []
         for clave in provincias.PROVINCIAS:

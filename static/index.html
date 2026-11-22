@@ -75,6 +75,10 @@
                 font-size: 10px; font-weight: 700; color: #fff; }
     .ic.si { background: #0ca30c; } .ic.medio { background: #e8930c; } .ic.no { background: #8a8880; }
     .fiab .nota-clima { margin-top: 4px; color: var(--tinta2); }
+    .ic.nd { background: #b5b3ab; }
+    #panel.plegado .fiab .nota-clima, #panel.plegado .fiab .confusion { display: none; }  /* en la ventana de cada punto */
+    .popup .confusion { margin: 6px 0 2px; }
+    .confusion { margin-top: 6px; padding: 5px 8px; border-left: 4px solid #d03b3b; background: #fdf0ef; font-size: 12.5px; }
     table.val { border-collapse: collapse; font-size: 12px; margin: 4px 0; }
     table.val td { padding: 2px 6px 2px 0; vertical-align: top; }
     .ruta { margin: 8px 0 6px; }
@@ -361,17 +365,22 @@
     const itemFuente = f => `<li><span class="tipo ${f.tipo}">${TIPOS[f.tipo] || f.tipo}</span>` +
       `<a href="${f.url}" target="_blank" rel="noopener">${f.cita}</a><span class="aporta">${f.aporta}</span></li>`;
 
-    const ICONO = { si: '✓', medio: '~', no: '✗' };
+    const ICONO = { si: '✓', medio: '~', no: '✗', nd: '?' };
     const marca = (clase, texto) => `<span class="marca"><span class="ic ${clase}" aria-hidden="true">${ICONO[clase]}</span>${texto}</span>`;
     function pintarFiabilidad(e) {
       const v = e.validacion;
       if (!v) { $('fiabilidad').innerHTML = ''; return; }
-      const ch = { 'buena': 'si', 'moderada': 'medio', 'débil': 'no' }[v.habitat.nivel];
-      const cc = { 'demostrada': 'si', 'indicios': 'medio', 'no demostrada': 'no' }[v.clima.nivel];
+      const ch = { 'buena': 'si', 'moderada': 'medio', 'débil': 'no', 'sin preferencia': 'nd' }[v.habitat.nivel];
+      const cc = { 'demostrada': 'si', 'indicios': 'medio', 'no demostrada': 'no', 'sin evaluar': 'nd' }[v.clima.nivel];
+      const txtH = v.habitat.nivel === 'sin preferencia' ? 'hábitat sin preferencia clara' : `hábitat ${v.habitat.nivel}`;
       $('fiabilidad').innerHTML = `<span class="t">Comprobado con hallazgos reales:</span> ` +
-        marca(ch, `hábitat ${v.habitat.nivel}`) + ' · ' + marca(cc, `efecto del tiempo ${v.clima.nivel}`) +
+        marca(ch, txtH) + ' · ' + marca(cc, `efecto del tiempo ${v.clima.nivel}`) +
         (cc === 'no' ? `<div class="nota-clima">En esta especie el tiempo reciente no ha mostrado relación con los hallazgos:
-          usa el mapa sobre todo para saber <b>dónde</b> (hábitat) y <b>cuándo</b> (temporada) buscar.</div>` : '');
+          usa el mapa sobre todo para saber <b>dónde</b> (hábitat) y <b>cuándo</b> (temporada) buscar.</div>` : '') +
+        (cc === 'nd' ? `<div class="nota-clima">Temporada y hábitat sacados de sus hallazgos reales; su respuesta al tiempo es
+          una estimación de su grupo, aún sin comprobar.</div>` : '') +
+        (e.confusiones ? `<div class="confusion"><b>⚠ Puede confundirse con:</b> ${e.confusiones}
+          Nunca consumas una seta que no hayas identificado con total seguridad.</div>` : '');
     }
 
     function pintarMetodo() {
@@ -383,11 +392,14 @@
         <table class="val">
           <tr><td><b>Hábitat</b></td><td>${v.habitat.n} hallazgos con coordenadas precisas. Probabilidad de que un hallazgo
             de esta especie tenga más hábitat que el de otra seta cualquiera: <b>${Math.round(v.habitat.auc * 100)} %</b>
-            (50 % = azar). ${v.habitat.pct_sin_habitat} % de hallazgos caen donde el mapa no ve hábitat
-            (frente al ${v.habitat.pct_territorio_sin_habitat} % del territorio).</td></tr>
-          <tr><td><b>Tiempo</b></td><td>${v.clima.n_hallazgos} hallazgos con fecha: el día del hallazgo puntúa más que el mismo
+            (50 % = azar). ${v.habitat.nivel === 'sin preferencia' ? 'Ninguna capa llega al 55 %: no se filtra por hábitat.'
+            : `${v.habitat.pct_sin_habitat} % de hallazgos caen donde el mapa no ve hábitat` +
+              (v.habitat.pct_territorio_sin_habitat != null ? ` (frente al ${v.habitat.pct_territorio_sin_habitat} % del territorio).` : '.')}</td></tr>
+          <tr><td><b>Tiempo</b></td><td>${v.clima.nivel === 'sin evaluar'
+            ? 'Sin evaluar todavía: se usa la plantilla de su grupo (ver Supuestos).'
+            : `${v.clima.n_hallazgos} hallazgos con fecha: el día del hallazgo puntúa más que el mismo
             día de otros años en el <b>${v.clima.gana_pct} %</b> de ${v.clima.n_pares} comparaciones (50 % = azar;
-            p = ${v.clima.p}). Efecto ${v.clima.nivel}.</td></tr>
+            p = ${v.clima.p}). Efecto ${v.clima.nivel}.`}</td></tr>
           <tr><td><b>Temporada</b></td><td>Ajustada a los meses de ${v.temporada.n} hallazgos.</td></tr>
         </table>
         Datos de solo presencia y con sesgos (zonas accesibles, más observadores en otoño): sirven para ordenar
@@ -474,7 +486,7 @@
     function popupCelda(c, sp) {
       const e = c.especies[sp], i = c.indicadores;
       const f = Object.entries(e.factores).map(([k, v]) => `${NOMBRE_FACTOR[k] || k}: ${v.toFixed(2)}`).join(' · ');
-      return `<div class="popup"><b>${e.indice} / 100</b> — ${sel.selectedOptions[0].text}<br>
+      return `<div class="popup"><b>${e.indice} / 100</b> — ${nombreEspecie(sp)}<br>${avisoConfusion(sp)}
         Factor limitante: <b>${NOMBRE_FACTOR[e.limitante] || e.limitante}</b><br><span style="color:#55554f">${f}</span>
         <table>
           <tr><td>Lluvia 7 / 30 días</td><td>${i.lluvia_7} / ${i.lluvia_30} mm</td></tr>
@@ -488,6 +500,11 @@
     }
 
     const pct = x => Math.round(100 * x) + ' %';
+    const avisoConfusion = sp => {
+      const c = catalogo?.especies.find(e => e.id === sp)?.confusiones;
+      return c ? `<div class="confusion"><b>⚠ Puede confundirse con:</b> ${c}</div>` : '';
+    };
+    const nombreEspecie = sp => catalogo?.especies.find(e => e.id === sp)?.nombre ?? sp;
     function factorHabitat(sp, sub) {
       const h = catalogo.especies.find(e => e.id === sp).habitat;
       const f = Object.entries(h.capas).reduce((a, [k, w]) => a + w * (sub[k] || 0), 0);
@@ -495,7 +512,7 @@
     }
     function popupSub(sub, c, sp, fh, v) {
       const ori = sub.umbria >= 0.3 ? 'muchas laderas en umbría' : sub.umbria >= 0.1 ? 'algo de umbría' : 'pocas umbrías';
-      return `<div class="popup"><b>${v} / 100</b> — ${sel.selectedOptions[0].text}<br>
+      return `<div class="popup"><b>${v} / 100</b> — ${nombreEspecie(sp)}<br>${avisoConfusion(sp)}
         Clima de la zona: <b>${c.especies[sp].indice}</b> × hábitat <b>${fh.toFixed(2)}</b>
         <table>
           <tr><td>Pinar / coníferas</td><td>${pct(sub.conifera)}</td></tr>
@@ -505,7 +522,7 @@
           <tr><td>Altitud · pendiente</td><td>${sub.altitud} m · ${sub.pendiente}°</td></tr>
           <tr><td>Orientación</td><td>${ori} (${pct(sub.umbria)} al norte)</td></tr>
         </table><hr style="border:none;border-top:1px solid #d8d6cf">` + popupCelda(c, sp).replace('<div class="popup">', '<div>')
-        .replace(/<b>\d+ \/ 100<\/b> — [^<]*<br>/, 'Clima: ').replace('<td>Altitud</td>', '<td>Altitud (modelo meteorológico)</td>') + '</div>';
+        .replace(/<b>\d+ \/ 100<\/b> — [^<]*<br>(<div class="confusion">[\s\S]*?<\/div>)?/, 'Clima: ').replace('<td>Altitud</td>', '<td>Altitud (modelo meteorológico)</td>') + '</div>';
     }
 
     function pintar() {
@@ -712,6 +729,51 @@
       return avisos;
     }
 
+    // ---------- Selector de especies ordenado por índice medio ----------
+    // En una provincia: media de lo que pinta el mapa (clima × hábitat donde hay hábitat, o solo clima).
+    // En el selector de provincias: media de Castilla y León ponderada por superficie (resumen del día).
+    function mediaEspecie(sp) {
+      if (datos && PROVINCIA && $('selector').hidden) {   // vista de provincia
+        if (capaSel() === 'habitat' && habitat) {
+          let suma = 0, n = 0;
+          for (const s of habitat.subs) {
+            const fh = factorHabitat(sp, s);
+            if (fh >= 0.05 && s.padre?.especies?.[sp]) { suma += s.padre.especies[sp].indice * fh; n++; }
+          }
+          return n ? suma / n : 0;
+        }
+        const v = datos.celdas.filter(c => c.especies?.[sp]).map(c => c.especies[sp].indice);
+        return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+      }
+      if (!resumenCyl) return null;
+      let suma = 0, peso = 0;
+      for (const p of Object.values(resumenCyl.provincias)) {
+        const e = p.especies?.[sp];
+        const v = e && (capaSel() === 'clima' ? e.clima_medio : e.con_habitat_medio);
+        if (v != null) { suma += v * p.celdas; peso += p.celdas; }
+      }
+      return peso ? suma / peso : null;
+    }
+
+    function ordenarEspecies() {
+      if (!catalogo) return;
+      // Solo especies presentes en los datos cargados (evita fallos si los datos son de un catálogo anterior)
+      const presentes = datos?.celdas?.[0]?.especies;
+      const lista = catalogo.especies.filter(e => !presentes || presentes[e.id])
+        .map(e => ({ e, v: mediaEspecie(e.id) }))
+        .sort((a, b) => (b.v ?? -1) - (a.v ?? -1) || a.e.nombre.localeCompare(b.e.nombre, 'es'));
+      const opcion = ({ e, v }) => `<option value="${e.id}">${e.nombre}${v == null ? '' : ` · ${Math.round(v)}`}</option>`;
+      const en = lista.filter(x => x.v == null || Math.round(x.v) >= 1), fuera = lista.filter(x => x.v != null && Math.round(x.v) < 1);
+      const donde = $('selector').hidden && PROVINCIA ? NOMBRES[PROVINCIA] : 'Castilla y León';
+      const html = (en.length ? `<optgroup label="De más a menos favorable hoy en ${donde}">${en.map(opcion).join('')}</optgroup>` : '') +
+                   (fuera.length ? `<optgroup label="Fuera de temporada o sin condiciones (0)">${fuera.map(opcion).join('')}</optgroup>` : '');
+      const actual = sel.value || leer('especie');
+      sel.innerHTML = html;
+      $('selEspecie').innerHTML = html;
+      const valida = lista.some(x => x.e.id === actual) ? actual : lista[0]?.e.id;
+      sel.value = valida; $('selEspecie').value = valida;
+    }
+
     // ---------- Arranque ----------
     let resumenCyl = null, contornoCyl = null, capaContorno = null;
 
@@ -725,14 +787,9 @@
         estadoLote = await leerJSON('datos/estado.json');
         modoAPI = !estadoLote;
         catalogo = (estadoLote && await leerJSON('datos/especies.json')) || await (await fetch('/api/especies')).json();
-        const opciones = catalogo.especies.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
-        sel.innerHTML = opciones;
-        $('selEspecie').innerHTML = opciones;
-        const guardada = leer('especie');
-        if (guardada && catalogo.especies.some(e => e.id === guardada)) sel.value = guardada;
-        $('selEspecie').value = sel.value;
-        pintarMetodo();
         resumenCyl = estadoLote ? await leerJSON('datos/resumen_cyl.json') : null;
+        ordenarEspecies();
+        pintarMetodo();
         contornoCyl = await leerJSON('static/provincias/CYL.geojson');
       } catch (err) {
         estado.textContent = 'Error al cargar: ' + err.message;
@@ -807,6 +864,8 @@
     }
 
     function mostrarSelector() {
+      $('selector').hidden = false;
+      ordenarEspecies();
       pintarSelector();
       $('selCerrar').hidden = !PROVINCIA;
       $('selector').hidden = false;
@@ -815,6 +874,7 @@
     function cerrarSelector() {
       if (!PROVINCIA) return;          // sin provincia elegida no hay mapa al que volver
       $('selector').hidden = true;
+      ordenarEspecies();
       $('cambiarProv').focus({ preventScroll: true });
     }
 
@@ -869,6 +929,8 @@
         estado.textContent = `Datos hasta ${datos.datos_hasta} · clima en ${datos.celdas.length} celdas de ≈ 8 × 11 km` +
           (habitat ? ` · hábitat en ${habitat.subs.length} subceldas de ≈ 2 km` : '') + '. Pulsa el mapa para ver el detalle.' +
           (estadoLote ? ` Actualizado el ${new Date(estadoLote.generado).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}.` : '');
+        ordenarEspecies();
+        pintarMetodo();
         pintarEstaciones();
         pintar();
       } catch (err) {
@@ -885,7 +947,7 @@
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !$('selector').hidden) cerrarSelector(); });
     $('selector').addEventListener('click', ev => { if (ev.target === $('selector')) cerrarSelector(); });
     $('selEspecie').addEventListener('change', () => {
-      sel.value = $('selEspecie').value; guardar('especie', sel.value);
+      sel.value = $('selEspecie').value; guardar('especie', sel.value);   // el orden no cambia: se conserva
       pintarSelector(); pintar(); pintarMetodo();
     });
     window.addEventListener('popstate', ev => {
@@ -896,7 +958,7 @@
 
     sel.addEventListener('change', () => { guardar('especie', sel.value); $('selEspecie').value = sel.value; pintar(); pintarMetodo(); });
     ocultarBaja.addEventListener('change', pintar);
-    document.querySelectorAll('input[name="capa"]').forEach(r => r.addEventListener('change', () => { guardar('capa', capaSel()); pintar(); }));
+    document.querySelectorAll('input[name="capa"]').forEach(r => r.addEventListener('change', () => { guardar('capa', capaSel()); ordenarEspecies(); pintar(); }));
     if (leer('capa') === 'clima') document.querySelector('input[value="clima"]').checked = true;
     iniciar();
   </script>

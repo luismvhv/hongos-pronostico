@@ -583,6 +583,33 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   ~95 mm en 30 días (30 mm en 7), suelo húmedo y sin heladas; el techo de 89 es la temporada (finales de
   noviembre baja hacia diciembre). Coherente, no es un fallo.
 
+**Ampliación a todas las setas recolectables (22-nov-2026).** 31 especies (7 iniciales + 24).
+- `app/catalogo_especies.py`: especies nuevas (taxonKey GBIF, nombre, grupo funcional), plantillas
+  climáticas por grupo (`GRUPOS`: termófilo, otoñal de pinar, tardío, hojarasca, pradera, madera,
+  primavera; **supuestos**) y **confusiones peligrosas** de las 31 (`CONFUSIONES`). Excluida
+  *Tricholoma equestre* (tóxica). Criterio: comestible y ≥ 70 registros en CyL ampliada.
+- `scripts/perfiles_gbif.py` → `app/perfiles_gbif.json`: temporada (meses reales) y hábitat (mejor AUC
+  frente a los hallazgos de las otras 30 especies; si < 0,55, sin filtro de hábitat) de las 24 nuevas.
+  Resultados: babosa → coníferas (AUC 0,77); carbonera, rebozuelo, gorro verde, trompeta, lengua de
+  vaca, boleto de verano → frondosas; boleto negro → pradera + ½ frondosas (dehesas); perretxiko y
+  champiñón → pradera; marzuelo, capuchina, angula gris → coníferas + ½ frondosas; parasol, pie violeta,
+  seta de ostra, colmenilla, platera, pie azul, L. panaeola → sin preferencia (no se filtran).
+  Temporadas: colmenilla abril, perretxiko abril-mayo, marzuelo feb-abr, gorro verde julio, boleto de
+  verano junio, aguja de invierno nov-feb.
+- **GBIF cambió el vocabulario**: `occurrenceStatus` ahora es `DETECTED` (antes `PRESENT`); el filtro
+  exigía `PRESENT` y devolvía 0 registros. Ahora se excluyen `ABSENT`/`NOT_DETECTED` (`gd.es_ausencia`).
+- El venv con rasterio no ve el CA del proxy: usar `SSL_CERT_FILE=/root/.ccr/ca-bundle.crt`.
+- Clima de las 24 nuevas **sin evaluar** (la app lo dice: "efecto del tiempo sin evaluar"). Siguiente:
+  calibrar por grupo con Open-Meteo en las fechas de los hallazgos (~1 500-5 000 llamadas; mejor en
+  GitHub Actions, la IP de la sesión agota el cupo diario).
+- Web: el desplegable de especies se **ordena de mayor a menor índice medio** (en la provincia: media de
+  lo que pinta el mapa; en el selector de provincias: media de CyL ponderada por superficie), con el
+  valor a la vista y un grupo "Fuera de temporada o sin condiciones (0)" al final. Solo se listan especies
+  presentes en los datos cargados. Aviso "⚠ Puede confundirse con…" en el panel desplegado y en la
+  ventana de cada punto. Panel plegado en móvil sin notas largas (tapaban el mapa).
+- Lote: en modo `--reutilizar`, si el catálogo de especies cambió respecto a lo publicado, hace el
+  cálculo completo (si no, la web mostraría especies sin datos).
+
 **Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
 (2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).
 (3) Cuenta de GBIF para la descarga completa. (4) Si el repositorio es privado, GitHub Actions da

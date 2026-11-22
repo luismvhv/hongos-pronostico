@@ -1,0 +1,771 @@
+{
+ "generado": "2026-11-22",
+ "registros": 7527,
+ "registros_habitat": 3875,
+ "especies": {
+  "macrolepiota_procera": {
+   "fenologia": {
+    "9": 0.37,
+    "10": 1.0,
+    "11": 0.93,
+    "12": 0.08
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.544,
+     "n": 425,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 1.3,
+      "frondosa": 0.89,
+      "pradera": 1.12
+     }
+    },
+    "temporada": {
+     "n": 816
+    }
+   }
+  },
+  "coprinus_comatus": {
+   "fenologia": {
+    "3": 0.1,
+    "4": 0.27,
+    "5": 0.23,
+    "6": 0.1,
+    "9": 0.23,
+    "10": 1.0,
+    "11": 0.92,
+    "12": 0.14
+   },
+   "habitat": {
+    "capas": {
+     "pradera": 1.0
+    },
+    "saturacion": 0.2,
+    "texto": "Praderas, según sus hallazgos (frente a otras setas: conifera ×0,53, frondosa ×0,65, pradera ×1,3)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.608,
+     "n": 322,
+     "pct_sin_habitat": 0.9,
+     "enriquecimiento": {
+      "conifera": 0.53,
+      "frondosa": 0.65,
+      "pradera": 1.3
+     }
+    },
+    "temporada": {
+     "n": 625
+    }
+   }
+  },
+  "lepista_nuda": {
+   "fenologia": {
+    "1": 0.11,
+    "2": 0.05,
+    "10": 0.28,
+    "11": 1.0,
+    "12": 0.6
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.506,
+     "n": 117,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.8,
+      "frondosa": 0.8,
+      "pradera": 0.9
+     }
+    },
+    "temporada": {
+     "n": 326
+    }
+   }
+  },
+  "boletus_reticulatus": {
+   "fenologia": {
+    "5": 0.41,
+    "6": 1.0,
+    "7": 0.67,
+    "8": 0.18,
+    "9": 0.78,
+    "10": 0.46,
+    "11": 0.2
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,5, frondosa ×1,48, pradera ×0,82)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.669,
+     "n": 201,
+     "pct_sin_habitat": 2.0,
+     "enriquecimiento": {
+      "conifera": 0.5,
+      "frondosa": 1.48,
+      "pradera": 0.82
+     }
+    },
+    "temporada": {
+     "n": 319
+    }
+   }
+  },
+  "hydnum_repandum": {
+   "fenologia": {
+    "1": 0.24,
+    "2": 0.13,
+    "7": 0.21,
+    "8": 0.2,
+    "9": 0.52,
+    "10": 1.0,
+    "11": 0.95,
+    "12": 0.54
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,64, frondosa ×1,5, pradera ×0,91)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.684,
+     "n": 243,
+     "pct_sin_habitat": 2.9,
+     "enriquecimiento": {
+      "conifera": 0.64,
+      "frondosa": 1.5,
+      "pradera": 0.91
+     }
+    },
+    "temporada": {
+     "n": 339
+    }
+   }
+  },
+  "russula_cyanoxantha": {
+   "fenologia": {
+    "5": 0.47,
+    "6": 0.7,
+    "7": 0.8,
+    "8": 0.55,
+    "9": 0.85,
+    "10": 1.0,
+    "11": 0.32
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,38, frondosa ×1,71, pradera ×0,81)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.738,
+     "n": 196,
+     "pct_sin_habitat": 1.0,
+     "enriquecimiento": {
+      "conifera": 0.38,
+      "frondosa": 1.71,
+      "pradera": 0.81
+     }
+    },
+    "temporada": {
+     "n": 287
+    }
+   }
+  },
+  "suillus_luteus": {
+   "fenologia": {
+    "9": 0.17,
+    "10": 1.0,
+    "11": 0.95,
+    "12": 0.15
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0
+    },
+    "saturacion": 0.3,
+    "texto": "Coníferas, según sus hallazgos (frente a otras setas: conifera ×2,9, frondosa ×0,64, pradera ×0,7)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.773,
+     "n": 112,
+     "pct_sin_habitat": 8.9,
+     "enriquecimiento": {
+      "conifera": 2.9,
+      "frondosa": 0.64,
+      "pradera": 0.7
+     }
+    },
+    "temporada": {
+     "n": 262
+    }
+   }
+  },
+  "pleurotus_ostreatus": {
+   "fenologia": {
+    "1": 0.15,
+    "2": 0.1,
+    "3": 0.1,
+    "4": 0.1,
+    "5": 0.18,
+    "6": 0.21,
+    "7": 0.31,
+    "8": 0.39,
+    "9": 0.34,
+    "10": 0.84,
+    "11": 1.0,
+    "12": 0.21
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.547,
+     "n": 136,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.69,
+      "frondosa": 1.1,
+      "pradera": 0.95
+     }
+    },
+    "temporada": {
+     "n": 264
+    }
+   }
+  },
+  "boletus_aereus": {
+   "fenologia": {
+    "5": 0.16,
+    "6": 0.32,
+    "7": 0.41,
+    "8": 0.17,
+    "9": 0.86,
+    "10": 1.0,
+    "11": 0.48
+   },
+   "habitat": {
+    "capas": {
+     "pradera": 1.0,
+     "frondosa": 0.5
+    },
+    "saturacion": 0.5,
+    "texto": "Praderas y bosque claro de frondosas, según sus hallazgos (frente a otras setas: conifera ×0,38, frondosa ×1,27, pradera ×1,03)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.606,
+     "n": 136,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.38,
+      "frondosa": 1.27,
+      "pradera": 1.03
+     }
+    },
+    "temporada": {
+     "n": 239
+    }
+   }
+  },
+  "agaricus_campestris": {
+   "fenologia": {
+    "5": 0.14,
+    "7": 0.06,
+    "8": 0.11,
+    "9": 0.52,
+    "10": 0.95,
+    "11": 1.0,
+    "12": 0.11
+   },
+   "habitat": {
+    "capas": {
+     "pradera": 1.0
+    },
+    "saturacion": 0.2,
+    "texto": "Praderas, según sus hallazgos (frente a otras setas: conifera ×0,38, frondosa ×0,97, pradera ×1,3)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.621,
+     "n": 88,
+     "pct_sin_habitat": 2.3,
+     "enriquecimiento": {
+      "conifera": 0.38,
+      "frondosa": 0.97,
+      "pradera": 1.3
+     }
+    },
+    "temporada": {
+     "n": 187
+    }
+   }
+  },
+  "cantharellus_cibarius": {
+   "fenologia": {
+    "1": 0.13,
+    "5": 0.18,
+    "6": 0.89,
+    "7": 1.0,
+    "8": 0.47,
+    "9": 0.68,
+    "10": 0.79,
+    "11": 0.55,
+    "12": 0.13
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,65, frondosa ×1,5, pradera ×0,87)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.689,
+     "n": 103,
+     "pct_sin_habitat": 1.0,
+     "enriquecimiento": {
+      "conifera": 0.65,
+      "frondosa": 1.5,
+      "pradera": 0.87
+     }
+    },
+    "temporada": {
+     "n": 187
+    }
+   }
+  },
+  "calocybe_gambosa": {
+   "fenologia": {
+    "3": 0.06,
+    "4": 0.48,
+    "5": 1.0,
+    "6": 0.23
+   },
+   "habitat": {
+    "capas": {
+     "pradera": 1.0
+    },
+    "saturacion": 0.2,
+    "texto": "Praderas, según sus hallazgos (frente a otras setas: conifera ×0,96, frondosa ×0,99, pradera ×1,41)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.645,
+     "n": 75,
+     "pct_sin_habitat": 4.0,
+     "enriquecimiento": {
+      "conifera": 0.96,
+      "frondosa": 0.99,
+      "pradera": 1.41
+     }
+    },
+    "temporada": {
+     "n": 164
+    }
+   }
+  },
+  "craterellus_cornucopioides": {
+   "fenologia": {
+    "1": 0.11,
+    "7": 0.09,
+    "8": 0.12,
+    "9": 0.43,
+    "10": 1.0,
+    "11": 0.77,
+    "12": 0.29
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,5, frondosa ×1,55, pradera ×0,78)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.702,
+     "n": 100,
+     "pct_sin_habitat": 1.0,
+     "enriquecimiento": {
+      "conifera": 0.5,
+      "frondosa": 1.55,
+      "pradera": 0.78
+     }
+    },
+    "temporada": {
+     "n": 167
+    }
+   }
+  },
+  "clitocybe_geotropa": {
+   "fenologia": {
+    "1": 0.04,
+    "10": 0.47,
+    "11": 1.0,
+    "12": 0.23
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.547,
+     "n": 74,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 1.47,
+      "frondosa": 0.97,
+      "pradera": 0.94
+     }
+    },
+    "temporada": {
+     "n": 147
+    }
+   }
+  },
+  "morchella_esculenta": {
+   "fenologia": {
+    "3": 0.14,
+    "4": 1.0,
+    "5": 0.28
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.546,
+     "n": 81,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.65,
+      "frondosa": 0.77,
+      "pradera": 1.04
+     }
+    },
+    "temporada": {
+     "n": 133
+    }
+   }
+  },
+  "boletus_pinophilus": {
+   "fenologia": {
+    "4": 0.1,
+    "5": 0.6,
+    "6": 0.52,
+    "9": 0.29,
+    "10": 1.0,
+    "11": 0.57,
+    "12": 0.07
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0,
+     "frondosa": 0.5
+    },
+    "saturacion": 0.5,
+    "texto": "Coníferas y algo de frondosas, según sus hallazgos (frente a otras setas: conifera ×2,3, frondosa ×0,91, pradera ×0,79)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.677,
+     "n": 63,
+     "pct_sin_habitat": 1.6,
+     "enriquecimiento": {
+      "conifera": 2.3,
+      "frondosa": 0.91,
+      "pradera": 0.79
+     }
+    },
+    "temporada": {
+     "n": 137
+    }
+   }
+  },
+  "hygrophorus_russula": {
+   "fenologia": {
+    "1": 0.14,
+    "10": 0.26,
+    "11": 1.0,
+    "12": 0.98
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0
+    },
+    "saturacion": 0.2,
+    "texto": "Coníferas, según sus hallazgos (frente a otras setas: conifera ×0,73, frondosa ×0,91, pradera ×0,6)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.595,
+     "n": 86,
+     "pct_sin_habitat": 12.8,
+     "enriquecimiento": {
+      "conifera": 0.73,
+      "frondosa": 0.91,
+      "pradera": 0.6
+     }
+    },
+    "temporada": {
+     "n": 123
+    }
+   }
+  },
+  "russula_virescens": {
+   "fenologia": {
+    "5": 0.12,
+    "6": 0.26,
+    "7": 1.0,
+    "8": 0.62,
+    "9": 0.5,
+    "10": 0.14,
+    "11": 0.07
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×0,45, frondosa ×1,43, pradera ×1,05)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.676,
+     "n": 80,
+     "pct_sin_habitat": 1.2,
+     "enriquecimiento": {
+      "conifera": 0.45,
+      "frondosa": 1.43,
+      "pradera": 1.05
+     }
+    },
+    "temporada": {
+     "n": 115
+    }
+   }
+  },
+  "tricholoma_portentosum": {
+   "fenologia": {
+    "1": 0.07,
+    "9": 0.04,
+    "10": 0.29,
+    "11": 1.0,
+    "12": 0.8
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0,
+     "frondosa": 0.5
+    },
+    "saturacion": 0.5,
+    "texto": "Coníferas y algo de frondosas, según sus hallazgos (frente a otras setas: conifera ×2,31, frondosa ×0,97, pradera ×0,74)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.712,
+     "n": 45,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 2.31,
+      "frondosa": 0.97,
+      "pradera": 0.74
+     }
+    },
+    "temporada": {
+     "n": 100
+    }
+   }
+  },
+  "lepista_personata": {
+   "fenologia": {
+    "1": 0.06,
+    "2": 0.08,
+    "3": 0.12,
+    "5": 0.04,
+    "10": 0.15,
+    "11": 1.0,
+    "12": 0.44
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.531,
+     "n": 24,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.16,
+      "frondosa": 0.54,
+      "pradera": 1.06
+     }
+    },
+    "temporada": {
+     "n": 92
+    }
+   }
+  },
+  "flammulina_velutipes": {
+   "fenologia": {
+    "1": 0.74,
+    "2": 0.42,
+    "3": 0.13,
+    "10": 0.39,
+    "11": 1.0,
+    "12": 0.45
+   },
+   "habitat": {
+    "capas": {
+     "frondosa": 1.0
+    },
+    "saturacion": 0.5,
+    "texto": "Frondosas, según sus hallazgos (frente a otras setas: conifera ×1,01, frondosa ×1,13, pradera ×0,82)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.572,
+     "n": 43,
+     "pct_sin_habitat": 11.6,
+     "enriquecimiento": {
+      "conifera": 1.01,
+      "frondosa": 1.13,
+      "pradera": 0.82
+     }
+    },
+    "temporada": {
+     "n": 99
+    }
+   }
+  },
+  "hygrophorus_marzuolus": {
+   "fenologia": {
+    "1": 0.21,
+    "2": 0.97,
+    "3": 1.0,
+    "4": 0.79,
+    "5": 0.1
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0,
+     "frondosa": 0.5
+    },
+    "saturacion": 0.5,
+    "texto": "Coníferas y algo de frondosas, según sus hallazgos (frente a otras setas: conifera ×1,31, frondosa ×1,4, pradera ×0,75)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.674,
+     "n": 50,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 1.31,
+      "frondosa": 1.4,
+      "pradera": 0.75
+     }
+    },
+    "temporada": {
+     "n": 89
+    }
+   }
+  },
+  "craterellus_tubaeformis": {
+   "fenologia": {
+    "2": 0.09,
+    "3": 0.09,
+    "8": 0.06,
+    "9": 0.12,
+    "10": 0.71,
+    "11": 1.0,
+    "12": 0.47
+   },
+   "habitat": {
+    "capas": {
+     "conifera": 1.0,
+     "frondosa": 0.5
+    },
+    "saturacion": 0.5,
+    "texto": "Coníferas y algo de frondosas, según sus hallazgos (frente a otras setas: conifera ×1,3, frondosa ×1,34, pradera ×0,64)."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.695,
+     "n": 44,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 1.3,
+      "frondosa": 1.34,
+      "pradera": 0.64
+     }
+    },
+    "temporada": {
+     "n": 88
+    }
+   }
+  },
+  "lepista_panaeola": {
+   "fenologia": {
+    "1": 0.09,
+    "4": 0.12,
+    "10": 0.29,
+    "11": 1.0,
+    "12": 0.26
+   },
+   "habitat": {
+    "capas": {},
+    "saturacion": 1.0,
+    "texto": "Sin preferencia clara de hábitat en los hallazgos (AUC < 0,55): no se filtra por hábitat."
+   },
+   "validacion": {
+    "habitat": {
+     "auc": 0.547,
+     "n": 23,
+     "pct_sin_habitat": 0.0,
+     "enriquecimiento": {
+      "conifera": 0.19,
+      "frondosa": 0.99,
+      "pradera": 1.15
+     }
+    },
+    "temporada": {
+     "n": 62
+    }
+   }
+  }
+ }
+}

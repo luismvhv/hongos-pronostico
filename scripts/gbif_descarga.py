@@ -34,6 +34,12 @@ CAMPOS = ["key", "decimalLatitude", "decimalLongitude", "coordinateUncertaintyIn
           "license", "issues", "occurrenceStatus"]
 
 
+def es_ausencia(r: dict) -> bool:
+    """GBIF marcaba la presencia como PRESENT y ahora como DETECTED (nov-2026): se excluyen las
+    ausencias en vez de exigir una palabra concreta."""
+    return (r.get("occurrenceStatus") or "").upper() in ("ABSENT", "NOT_DETECTED")
+
+
 def pedir(params):
     url = "https://api.gbif.org/v1/occurrence/search?" + urllib.parse.urlencode(params)
     for i in range(5):
@@ -52,8 +58,8 @@ def main(salida):
         while True:
             d = pedir({**FILTROS, "taxonKey": key, "limit": 300, "offset": offset})
             for r in d["results"]:
-                if r.get("occurrenceStatus", "PRESENT") != "PRESENT":
-                    continue  # registros de ausencia
+                if es_ausencia(r):
+                    continue
                 filas.append({"especie": sp, **{c: r.get(c) for c in CAMPOS}})
                 n += 1
             offset += 300

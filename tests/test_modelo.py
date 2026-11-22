@@ -80,3 +80,24 @@ def test_catalogo_coherente():
             assert f in c["fuentes"], f
     for f in c["fuentes_generales"] + c["fuentes_habitat"] + c["fuentes_validacion"]:
         assert f in c["fuentes"], f
+
+
+def test_especies_ampliadas_completas():
+    from app.catalogo_especies import CONFUSIONES, NUEVAS
+    assert len(modelo.ESPECIES) == 31
+    for sp in modelo.ESPECIES:
+        p = modelo.ESPECIES[sp]
+        assert p["fenologia"] and max(p["fenologia"].values()) == 1.0, sp   # temporada normalizada
+        assert sp in modelo.HABITAT and sp in CONFUSIONES, sp
+        assert modelo.validacion_especie(sp) is not None, sp
+    for sp in NUEVAS:
+        assert modelo.validacion_especie(sp)["clima"]["nivel"] == "sin evaluar"
+    assert "tricholoma_equestre" not in modelo.ESPECIES        # tóxica: excluida a propósito
+
+
+def test_habitat_sin_filtro_y_temporadas_de_primavera():
+    from datetime import date
+    assert modelo.habitat("macrolepiota_procera", {"conifera": 0, "frondosa": 0, "pradera": 0}) == 1.0
+    assert modelo.fenologia(modelo.ESPECIES["morchella_esculenta"], date(2026, 4, 15)) == 1.0
+    assert modelo.fenologia(modelo.ESPECIES["morchella_esculenta"], date(2026, 11, 15)) == 0.0
+    assert modelo.fenologia(modelo.ESPECIES["hygrophorus_marzuolus"], date(2026, 3, 15)) == 1.0
