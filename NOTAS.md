@@ -504,7 +504,7 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   Open-Meteo: solo se piden los últimos días y se añaden a lo guardado (~1 000 llamadas/día para toda CyL).
   Si un proveedor falla, se publica el último dato bueno con su fecha y un aviso ("datos de hace 2 días");
   si falla AEMET, solo Open-Meteo con confianza rebajada (ya implementado).
-- **4.2 Selector de provincias y web estática.** Pantalla inicial con el mapa de CyL y el índice medio por
+- **4.2 Selector de provincias y web estática — ✅ HECHO.** Pantalla inicial con el mapa de CyL y el índice medio por
   provincia para la especie elegida; al elegir, se carga solo esa provincia (`?provincia=SORIA`, se
   recuerda la última). La web pasa a ser estática (Render Static Site o GitHub Pages: no se duerme,
   carga en < 1 s, sin pantalla de 2 minutos). FastAPI queda para el lote y consultas puntuales.
@@ -567,6 +567,21 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
   Open-Meteo: la prueba real se hace en GitHub Actions (`mcp__github__actions_*`, logs al terminar).
 - Avisos de GitHub: las acciones v4/v5 usan Node 20 (obsoleto); funcionan, actualizar cuando haya
   versiones nuevas.
+
+**Fase 4.2 — selector de provincias (22-nov-2026, publicado).**
+- Al abrir la web sin `?provincia=` aparece un **mapa SVG de CyL** (de `static/provincias/CYL.geojson`,
+  proyección equirectangular con corrección por latitud, sin teselas) con cada provincia coloreada por
+  su índice medio del día (`datos/resumen_cyl.json`: media donde hay hábitat, o del clima en "Solo clima")
+  para la especie elegida, y una **lista** de las 9 ordenada de más a menos favorable.
+- Tocar (o Tab + Enter) una provincia la carga sin recargar la página; `?provincia=SORIA` (con o sin
+  tildes) como enlace directo; botón atrás del navegador; se recuerda y marca la última; botón
+  "Cambiar provincia" en el panel; Escape o clic fuera cierran.
+- En Render (modo API) no hay resumen: el selector sale en gris y elegir provincia la calcula bajo demanda.
+- Verificado en Pages (escritorio y móvil, sin errores): selector, Soria por el mapa, León por la lista,
+  atrás, Escape, enlace directo y teclado.
+- Comprobación de cordura (22-nov): níscalo con clima medio 69-88 por provincia porque en Burgos han caído
+  ~95 mm en 30 días (30 mm en 7), suelo húmedo y sin heladas; el techo de 89 es la temporada (finales de
+  noviembre baja hacia diciembre). Coherente, no es un fallo.
 
 **Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
 (2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).
