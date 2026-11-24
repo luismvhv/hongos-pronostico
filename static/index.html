@@ -64,6 +64,14 @@
     .tipo.datos { color: #0d5c63; border-color: #8fcbd0; background: #eaf7f8; }
     .tipo.parte { color: #164a8a; border-color: #9cbde6; background: #eef4fc; }
     .tipo.divulgacion { color: #55554f; border-color: #c9c7bf; background: #f4f3ef; }
+    .base { border-top: 1px solid var(--borde); padding: 6px 0; font-size: 12.5px; }
+    .base b { font-size: 13px; }
+    .base .nivel { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 5px; border-radius: 4px; border: 1px solid; margin-left: 4px; }
+    .nivel.respaldado { color: #0a5a0a; border-color: #8bc58b; background: #eef8ee; }
+    .nivel.indicios { color: #7a4d00; border-color: #e3c06e; background: #fff7e3; }
+    .nivel.supuesto, .nivel.sin { color: #55554f; border-color: #c9c7bf; background: #f4f3ef; }
+    .base .ev { color: var(--tinta2); display: block; margin-top: 2px; }
+    .base .refs { display: block; margin-top: 2px; }
     .supuesto { background: #f4f3ef; border-left: 4px solid #9a9890; padding: 6px 8px; font-size: 12.5px; margin-top: 6px; }
 
     .popup td { padding: 1px 6px 1px 0; font-size: 12px; vertical-align: top; }
@@ -218,6 +226,8 @@
         <summary>Cómo se calcula y fuentes</summary>
         <h3>Método</h3>
         <ol id="metodoPasos"></ol>
+        <h3>Cómo influye el tiempo (y en qué se basa)</h3>
+        <div id="basesTiempo"></div>
         <h3 id="tituloEspecie">En qué se basa esta especie</h3>
         <div id="resumenEspecie" class="nota" style="margin-top:0"></div>
         <ul class="fuentes" id="fuentesEspecie"></ul>
@@ -406,6 +416,16 @@
         y calibrar, no son una probabilidad. Validación del ${v.fecha}.`;
       $('fuentesValidacion').innerHTML = catalogo.fuentes_validacion.map(id => itemFuente(catalogo.fuentes[id])).join('');
       $('metodoPasos').innerHTML = catalogo.metodo.map(p => `<li>${p}</li>`).join('');
+      const NIVEL = { 'respaldado': ['respaldado', 'Respaldado'], 'indicios': ['indicios', 'Indicios'],
+                      'supuesto': ['supuesto', 'Supuesto'], 'sin evidencia directa': ['sin', 'Sin evidencia directa'] };
+      $('basesTiempo').innerHTML = (catalogo.bases_tiempo || []).map(b => {
+        const [cl, tx] = NIVEL[b.respaldo] || ['supuesto', b.respaldo];
+        const refs = b.fuentes.map(id => catalogo.fuentes[id]).filter(Boolean)
+          .map(f => { const a = (f.cita.match(/\((\d{4})\)/) || [])[1];
+                      return `<a href="${f.url}" target="_blank" rel="noopener">${a ? `${f.cita.split(' (')[0]} (${a})` : f.cita}</a>`; }).join(' · ');
+        return `<div class="base"><b>${b.factor}</b><span class="nivel ${cl}">${tx}</span><br>${b.como}
+          <span class="ev">${b.evidencia}</span>${refs ? `<span class="refs">Fuentes: ${refs}</span>` : ''}</div>`;
+      }).join('');
       $('tituloEspecie').textContent = `En qué se basa: ${e.nombre}`;
       $('resumenEspecie').textContent = e.resumen;
       $('fuentesEspecie').innerHTML = e.fuentes.length
@@ -490,6 +510,7 @@
         Factor limitante: <b>${NOMBRE_FACTOR[e.limitante] || e.limitante}</b><br><span style="color:#55554f">${f}</span>
         <table>
           <tr><td>Lluvia 7 / 30 días</td><td>${i.lluvia_7} / ${i.lluvia_30} mm</td></tr>
+          ${i.lluvia_ponderada != null ? `<tr><td>Lluvia que ya cuenta para las setas (con su retraso)</td><td>${i.lluvia_ponderada} mm</td></tr>` : ''}
           <tr><td>Balance lluvia − ET0 (30 d)</td><td>${i.balance_30} mm</td></tr>
           <tr><td>Humedad del suelo (7 d)</td><td>${i.suelo_7d ?? '—'} m³/m³</td></tr>
           <tr><td>Heladas (10 d)</td><td>${i.heladas_10} (fuertes: ${i.heladas_fuertes_10}), mín. ${i.tmin_10 ?? '—'} °C</td></tr>
@@ -734,6 +755,9 @@
     // En el selector de provincias: media de Castilla y León ponderada por superficie (resumen del día).
     function mediaEspecie(sp) {
       if (datos && PROVINCIA && $('selector').hidden) {   // vista de provincia
+        // Si hay resumen del día, se usa el MISMO número que pinta el mapa de CyL (coherencia exacta)
+        const r = resumenCyl?.provincias?.[PROVINCIA]?.especies?.[sp];
+        if (r) return capaSel() === 'clima' ? r.clima_medio : r.con_habitat_medio;
         if (capaSel() === 'habitat' && habitat) {
           let suma = 0, n = 0;
           for (const s of habitat.subs) {

@@ -610,6 +610,35 @@ parasol ↔ *Lepiota* pequeñas). La app nunca debe servir para identificar seta
 - Lote: en modo `--reutilizar`, si el catálogo de especies cambió respecto a lo publicado, hace el
   cálculo completo (si no, la web mostraría especies sin datos).
 
+**Modelo v2: retardo de la lluvia y coherencia de cifras (24-nov-2026).**
+- *Queja de Luis*: tras varios días de lluvia y un domingo soleado (22-nov) el índice era muy alto y apenas
+  encontró setas. Datos de Burgos (Open-Meteo): mes seco hasta el 8-nov, ~70 mm del 9 al 14-nov, 18 mm el
+  21-nov. El 22-nov hacía solo 13 días del inicio de las lluvias.
+- *Causa*: la v1 sumaba la lluvia de 5 a 30 días con el mismo peso; 70 mm a 8-13 días ya superaban el
+  objetivo (níscalo 88).
+- *Revisión bibliográfica*: Straatsma et al. 2001 (21 años, setas ~3 semanas tras la lluvia, vía revisión);
+  Salerni et al. 2002 (la lluvia de 30 días previos explica mejor que 5/10/15); Karavani et al. 2018 (efecto
+  de la lluvia con 1 mes de retraso a escala mensual); Sato et al. 2012 (lluvia mensual +, la de la última
+  semana no ayuda, según resúmenes); boleto en Soria 2017 (temperatura no significativa); preprint bioRxiv
+  2025 (boleto: óptimo ~13 °C en 20 días, lluvia en 26 días). **Sol**: no hay estudios de campo que muestren
+  que el sol dispare la fructificación; cuenta vía evaporación (balance hídrico, ya en el modelo).
+- *Cambio*: núcleo de retardo `modelo.NUCLEO_LLUVIA = (7, 21, 35, 45)`: peso 0 la última semana, sube hasta
+  21 días, 1 entre 21 y 35, baja a 0 a los 45. Objetivo de lluvia reescalado a días equivalentes (26).
+  Contraste con GBIF (mismo día de otros años, mitad A elige / mitad B comprueba): plana 57,3 / 57,3 %;
+  núcleo 57,1 / **58,6 %** → no empeora, mejora ligeramente. La prueba es poco sensible a la forma exacta.
+- *Probado y descartado*: factor de "maduración" (exigir 2-4 semanas de suelo húmedo seguidas): resultados
+  inconsistentes entre mitades (55,8 / 59,4 %) → ruido, no se adopta.
+- *Efecto en el caso real* (Burgos, 22-nov): níscalo 88 → **61**; negrilla 90 → 67; pie violeta 91 → 63.
+  Con lluvia de 3-5 semanas atrás (otoño húmedo continuo) el índice no cambia.
+- `modelo.BASES_TIEMPO`: cada factor (retraso y cantidad de lluvia, suelo y balance, sol, temperatura,
+  heladas) con nivel de respaldo (respaldado / indicios / supuesto / sin evidencia), evidencia y fuentes;
+  se muestra en la app ("Cómo influye el tiempo") y la ventana de cada punto enseña "lluvia que ya cuenta".
+- `modelo.MODELO_VERSION` se guarda en `estado.json`; si cambia, el lote no reutiliza datos (cálculo completo).
+- *Coherencia de cifras*: el resumen descartaba las ~215 subceldas del borde sin celda de clima por clave y
+  la web les asignaba la más cercana (diferencias de hasta 3 puntos). Ahora el lote usa la misma regla y la
+  web, dentro de la provincia, muestra el valor del resumen (el mismo que pinta el mapa de CyL): 20/20
+  combinaciones idénticas en la prueba. En la pantalla de provincias, el desplegable muestra la media de CyL.
+
 **Decisiones que necesita Luis.** (1) Aprobar el paso a cálculo diario por lotes + web estática.
 (2) Añadir la clave AEMET como *secret* en GitHub (Settings → Secrets and variables → Actions).
 (3) Cuenta de GBIF para la descarga completa. (4) Si el repositorio es privado, GitHub Actions da

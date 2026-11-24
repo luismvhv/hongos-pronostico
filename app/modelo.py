@@ -116,6 +116,38 @@ ESPECIES = {
 
 PESOS_AGUA = {"lluvia": 0.5, "suelo": 0.25, "balance": 0.25}  # SUPUESTO
 
+# Versión del modelo: el lote diario recalcula todo si cambia (no reutiliza datos de otra versión)
+MODELO_VERSION = "v2-retardo-lluvia"
+
+# Núcleo de retardo de la lluvia (v2, nov-2026). Cada día de lluvia pesa según su antigüedad d (días
+# antes de hoy; ayer = 1): 0 si d < 7, sube linealmente hasta 1 a los 21 días, 1 hasta los 35, y baja
+# a 0 a los 45. Base: la fructificación responde a la lluvia con unas 3 semanas a 1 mes de retraso y a
+# escala mensual (Straatsma et al. 2001; Salerni et al. 2002; Karavani et al. 2018; Sato et al. 2012);
+# la lluvia de la última semana aún no ha producido setas. Contrastado con ~1 000 días de hallazgos de
+# GBIF: no empeora la señal y la mejora ligeramente (58,6 % frente a 57,3 %). La forma exacta es SUPUESTA.
+NUCLEO_LLUVIA = (7, 21, 35, 45)
+
+
+def peso_lluvia(d: int) -> float:
+    a, b, c, e = NUCLEO_LLUVIA
+    if d < a or d > e:
+        return 0.0
+    if d < b:
+        return (d - a) / (b - a)
+    if d <= c:
+        return 1.0
+    return (e - d) / (e - c)
+
+
+# Días "equivalentes" del núcleo: para escalar el objetivo de lluvia de cada especie, que estaba
+# expresado para una suma plana entre lag_ini y lag_fin.
+_DIAS_NUCLEO = sum(peso_lluvia(d) for d in range(1, NUCLEO_LLUVIA[3] + 1))
+
+
+def objetivo_lluvia(perfil: dict) -> float:
+    ll = perfil["lluvia"]
+    return ll["objetivo_mm"] * _DIAS_NUCLEO / (ll["lag_fin"] - ll["lag_ini"] + 1)
+
 
 def trapecio(x: float, a: float, b: float, c: float, d: float) -> float:
     if x is None:
@@ -158,6 +190,8 @@ def indicadores(valores: list[dict]) -> dict:
         return [x.get(k) for x in v[ini:fin]]
 
     prec = lambda a, b: sum(x for x in ventana(a, b, "prec") if x is not None)
+    # lluvia ponderada por antigüedad (núcleo de retardo); la última fila es ayer (d = 1)
+    ponderada = sum(peso_lluvia(n - i) * (x.get("prec") or 0) for i, x in enumerate(v))
     tmin10 = [x for x in ventana(1, 10, "tmin") if x is not None]
     suelo = _media([_media([x.get("suelo_0_7"), x.get("suelo_7_28")]) for x in v[-7:]])
     balance30 = sum((x.get("prec") or 0) - (x.get("et0") or 0) for x in v[-30:])
@@ -166,7 +200,8 @@ def indicadores(valores: list[dict]) -> dict:
     if n >= 21 and all(t is not None for t in tmax[-21:]):
         salto_tmax = max(tmax[-7:]) - _media(tmax[-21:-7])
     return {
-        "prec": prec,  # función: lluvia acumulada en una ventana con retardo
+        "prec": prec,  # función: lluvia acumulada en una ventana
+        "lluvia_ponderada": round(ponderada, 1),
         "tmed": lambda dias: _media(ventana(1, dias, "tmed")),
         "lluvia_7": round(prec(1, 7), 1),
         "lluvia_30": round(prec(1, 30), 1),
@@ -181,11 +216,11 @@ def indicadores(valores: list[dict]) -> dict:
 
 def puntuar(perfil: dict, ind: dict, hoy: date) -> dict:
     """Índice 0-100 de una especie y el desglose de factores (para explicar el resultado)."""
-    ll = perfil["lluvia"]
-    p = ind["prec"](ll["lag_ini"], ll["lag_fin"])
+    # Lluvia ponderada por su antigüedad (núcleo de retardo, ver NUCLEO_LLUVIA)
+    p = ind["lluvia_ponderada"]
     # Logística con umbral (la lluvia actúa como "disparador"): 0,5 al 55 % del objetivo,
     # 0,9 al alcanzarlo, ≈0,15 con un 20 %. Forma SUPUESTA; el objetivo del níscalo, de Micocyl.
-    obj = ll["objetivo_mm"]
+    obj = objetivo_lluvia(perfil)
     f_lluvia = 1 / (1 + math.exp(-(4.88 / obj) * (p - 0.55 * obj)))
     f_suelo = trapecio(ind["suelo_7d"], 0.08, 0.20, 0.40, 0.50)      # m³/m³ — SUPUESTO
     f_balance = min(1.0, max(0.0, (ind["balance_30"] + 60) / 70))    # −60 mm → 0; +10 mm → 1 — SUPUESTO
@@ -214,7 +249,7 @@ def puntuar(perfil: dict, ind: dict, hoy: date) -> dict:
         "indice": round(indice),
         "limitante": limitante,
         "factores": {k: round(x, 2) for k, x in factores.items()},
-        "detalle": {"lluvia_ventana_mm": round(p, 1), "ventana": f"{ll['lag_ini']}-{ll['lag_fin']} d",
+        "detalle": {"lluvia_ventana_mm": round(p, 1), "ventana": "ponderada 7-45 d (máx. 21-35 d)",
                     "tmed": None if tmed is None else round(tmed, 1)},
     }
 
@@ -290,6 +325,27 @@ FUENTES = {
         "cita": "Monaco Nature Encyclopedia: Cantharellus lutescens.",
         "url": "https://monaconatureencyclopedia.com/cantharellus-lutescens/?lang=en", "tipo": "divulgacion",
         "aporta": "Fructifica de finales de otoño a principios de invierno, sobre todo en coníferas.",
+    },
+    "straatsma2001": {
+        "cita": "Straatsma, Ayer y Egli (2001). Species richness, abundance, and phenology of fungal fruit bodies over 21 years in a Swiss forest plot. Mycological Research 105: 515-523.",
+        "url": "https://www.wsl.ch/fileadmin/user_upload/WSL/Biodiversitaet/Artenvielfalt/Pilze/Pilzreservat_La_Chaneaz/sdarticle.pdf",
+        "tipo": "articulo",
+        "aporta": "21 años de muestreo semanal: la fecha de aparición depende de la temperatura de julio-agosto; las setas aparecen unas 3 semanas después de la lluvia (dato de una revisión posterior).",
+    },
+    "salerni2002": {
+        "cita": "Salerni, Laganà, Perini, Loppi y De Dominicis (2002). Effects of temperature and rainfall on fruiting of macrofungi in oak forests of the Mediterranean area. Israel Journal of Plant Sciences 50: 189-198.",
+        "url": "https://usiena-air.unisi.it/handle/11365/3048", "tipo": "articulo",
+        "aporta": "Robledales mediterráneos: probadas ventanas de 5, 10, 15 y 30 días, la que mejor explica la fructificación otoñal es la lluvia de los 30 días previos.",
+    },
+    "sato2012": {
+        "cita": "Sato, Morimoto y Hattori (2012). A thirty-year survey reveals that ecosystem function of fungi predicts phenology of mushroom fruiting. PLoS ONE 7: e49777.",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0049777", "tipo": "articulo",
+        "aporta": "30 años: la lluvia acumulada del mes y la temperatura favorecen a los micorrícicos; según resúmenes, la lluvia de la última semana no ayuda (efecto ligeramente negativo).",
+    },
+    "edulis_soria2017": {
+        "cita": "Effects of forest management and climatic variables on the mycelium dynamics and sporocarp production of the ectomycorrhizal fungus Boletus edulis (2017). Forest Ecology and Management.",
+        "url": "https://www.sciencedirect.com/science/article/abs/pii/S0378112717301317", "tipo": "articulo",
+        "aporta": "Pinar de Soria: la lluvia de otoño explica la producción de boleto; la temperatura no tuvo efecto significativo.",
     },
     "copernicus_hrl": {
         "cita": "Copernicus Land Monitoring Service: High Resolution Layers Forest Type, Tree Cover Density y Grassland 2018 (10 m). EEA.",
@@ -378,6 +434,54 @@ FUENTES_ESPECIE = {
     },
 }
 
+# Cómo influye el tiempo en el índice: qué está respaldado y qué es supuesto (se muestra en la app)
+BASES_TIEMPO = [
+    {"factor": "Retraso de la lluvia",
+     "como": "Cada día de lluvia pesa según su antigüedad: nada la última semana, sube hasta las 3 semanas, "
+             "máximo entre 3 y 5 semanas y se apaga hacia las 6,5. Las setas no salen al día siguiente de llover.",
+     "respaldo": "respaldado",
+     "evidencia": "Las setas aparecen unas 3 semanas después de la lluvia; la lluvia del mes previo es la que mejor "
+                  "explica la fructificación; a escala mensual el efecto llega con un mes de retraso; la lluvia de la "
+                  "última semana no ayuda. Con hallazgos reales de GBIF este retraso no empeora el modelo y lo mejora "
+                  "un poco (58,6 % frente a 57,3 %). La forma exacta del retraso es una elección nuestra.",
+     "fuentes": ["straatsma2001", "salerni2002", "karavani2018", "sato2012"]},
+    {"factor": "Cantidad de lluvia",
+     "como": "Curva con umbral: poca lluvia apenas cuenta y unos 50 l/m² (con su retraso) dan casi el máximo en el níscalo.",
+     "respaldo": "respaldado",
+     "evidencia": "La lluvia de finales de verano y otoño es el principal motor de la producción; los partes de Micocyl "
+                  "citan más de 50 l/m² como disparador de nuevas salidas de níscalo. La forma de la curva es supuesta.",
+     "fuentes": ["alday2017fe", "taye2016", "micocyl2021"]},
+    {"factor": "Humedad del suelo y balance hídrico",
+     "como": "La humedad del suelo de la última semana y la lluvia menos la evaporación del último mes completan "
+             "el factor agua (25 % cada una).",
+     "respaldo": "respaldado",
+     "evidencia": "La humedad del suelo del mismo mes influye; los modelos de balance hídrico (lluvia menos evaporación) "
+                  "explican mejor que la lluvia sola. Los pesos (50/25/25) son supuestos.",
+     "fuentes": ["karavani2018", "agreda2015", "martinezdearagon2007"]},
+    {"factor": "Sol",
+     "como": "No hay un factor «días de sol». El sol cuenta a través de la evaporación: más sol seca el suelo y "
+             "empeora el balance hídrico.",
+     "respaldo": "sin evidencia directa",
+     "evidencia": "No hemos encontrado estudios de campo que muestren que el sol, por sí mismo, dispare la "
+                  "fructificación. La idea popular de «después de llover hacen falta días de sol» se explica por el "
+                  "retraso de 2-4 semanas tras la lluvia y por la temperatura, que el modelo ya recoge.",
+     "fuentes": []},
+    {"factor": "Temperatura",
+     "como": "Media de los últimos 14-20 días dentro del rango de cada especie (p. ej. boleto con óptimo hacia 13 °C; "
+             "níscalo y negrilla toleran más frío).",
+     "respaldo": "indicios",
+     "evidencia": "En el boleto, el máximo se da con unos 13 °C de media en 20 días (preprint); el calor acorta la "
+                  "temporada de los micorrícicos; en un pinar de Soria la temperatura no fue significativa para el "
+                  "boleto. El efecto existe pero es menor que el de la lluvia; los rangos de muchas especies son supuestos.",
+     "fuentes": ["biorxiv2025", "pinargrande", "edulis_soria2017"]},
+    {"factor": "Heladas",
+     "como": "Cada helada de los últimos 10 días resta, más en especies termófilas (boleto, oronja) que en las tardías.",
+     "respaldo": "supuesto",
+     "evidencia": "Es conocimiento micológico general que las heladas fuertes cortan la temporada, pero no hemos "
+                  "encontrado umbrales publicados: las penalizaciones son supuestas.",
+     "fuentes": []},
+]
+
 # Respaldan el factor agua y el papel del calor para todas las especies
 FUENTES_GENERALES = ["alday2017fe", "alday2017sr", "karavani2018", "agreda2015", "martinezdearagon2007", "pinargrande"]
 
@@ -387,8 +491,9 @@ METODO = [
     "Cerca de cada estación se corrige el modelo con lo que midió AEMET (lluvia y temperaturas); "
     "lejos de ellas solo se usa el modelo y la confianza baja.",
     "Para cada especie se puntúan de 0 a 1 cinco factores: época del año, agua (lluvia de las últimas "
-    "semanas con retraso, humedad del suelo y lluvia menos evaporación), temperatura media reciente, "
-    "heladas de los últimos 10 días y, en el boleto, golpes de calor.",
+    "semanas pesada según su antigüedad —la de los últimos días aún no cuenta—, humedad del suelo y lluvia "
+    "menos evaporación), temperatura media reciente, heladas de los últimos 10 días y, en el boleto, golpes "
+    "de calor. Ver «Cómo influye el tiempo».",
     "El índice es 100 × el producto de los factores: basta con que uno falle (por ejemplo, sin agua) "
     "para que el resultado baje mucho.",
     "Hábitat (Copernicus): en una malla fina de unos 2 km se mira qué parte del terreno es pinar, "
@@ -459,7 +564,8 @@ def catalogo() -> dict:
                          "habitat": HABITAT[k], "validacion": validacion_especie(k),
                          "confusiones": CONFUSIONES.get(k), "ampliacion": k in PERFILES_GBIF})
     return {"especies": especies, "fuentes": FUENTES, "metodo": METODO, "fuentes_generales": FUENTES_GENERALES,
-            "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"], "fuentes_validacion": ["gbif"]}
+            "fuentes_habitat": ["copernicus_hrl", "copernicus_dem"], "fuentes_validacion": ["gbif"],
+            "bases_tiempo": BASES_TIEMPO, "modelo_version": MODELO_VERSION}
 
 
 # --- Ampliación a todas las setas recolectables (nov-2026) -------------------------------------

@@ -88,8 +88,11 @@ def resumen_provincia(res: dict, clave: str) -> dict:
         for f in h["celdas"]:
             sub = dict(zip(h["campos"], f))
             k = f"{math.floor(sub['lat'] * 10 + 1e-9) / 10 + 0.05:.2f},{math.floor(sub['lon'] * 10 + 1e-9) / 10 + 0.05:.2f}"
-            if k in por_clave:
-                subs.append((sub, por_clave[k]))
+            # Misma regla que la web (index.html): si la subcelda del borde no tiene celda de clima con
+            # su clave, se usa la más cercana. Así el valor del mapa de CyL y el de la provincia coinciden.
+            c = por_clave.get(k) or min(celdas, key=lambda c: (c["lat"] - sub["lat"]) ** 2
+                                        + ((c["lon"] - sub["lon"]) * 0.74) ** 2)
+            subs.append((sub, c))
     for sp in modelo.ESPECIES:
         clima = [c["especies"][sp]["indice"] for c in celdas]
         con_hab = [(c["especies"][sp]["indice"], modelo.habitat(sp, s)) for s, c in subs]
@@ -138,6 +141,9 @@ async def main():
         if publicadas != set(modelo.ESPECIES):
             print(f"El catálogo cambió ({len(publicadas)} → {len(modelo.ESPECIES)} especies): cálculo completo", flush=True)
             est = None
+        elif est.get("modelo_version") != modelo.MODELO_VERSION:
+            print(f"El modelo cambió ({est.get('modelo_version')} → {modelo.MODELO_VERSION}): cálculo completo", flush=True)
+            est = None
     if est:
         res = previo(args.previo, "datos/resumen_cyl.json")
         faltan = []
@@ -178,6 +184,7 @@ async def main():
     estado = {
         "generado": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "version": os.getenv("GITHUB_SHA", "local")[:7],
+        "modelo_version": modelo.MODELO_VERSION,
         "segundos": round(time.time() - t0),
         "proveedores": {
             "aemet": info_aemet,

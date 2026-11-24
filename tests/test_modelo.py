@@ -55,13 +55,33 @@ def test_heladas_penalizan_al_boleto():
     assert con["indice"] <= sin["indice"]
 
 
-def test_ventana_de_lluvia_con_retardo():
-    # Lluvia solo el último día: no cuenta para el níscalo (ventana 5-30 días)
+def test_lluvia_con_retardo():
+    # Lluvia ayer: aún no cuenta para las setas; lluvia hace 4 semanas: cuenta entera
     v = serie(prec=0.0)
     v[-1]["prec"] = 80.0
     ind = modelo.indicadores(v)
-    assert ind["prec"](5, 30) == 0.0
-    assert ind["prec"](1, 7) == 80.0
+    assert ind["lluvia_ponderada"] == 0.0 and ind["lluvia_7"] == 80.0
+    v = serie(prec=0.0)
+    v[-28]["prec"] = 80.0
+    assert modelo.indicadores(v)["lluvia_ponderada"] == 80.0
+
+
+def test_nucleo_de_retardo():
+    assert modelo.peso_lluvia(3) == 0.0 and modelo.peso_lluvia(6) == 0.0
+    assert 0 < modelo.peso_lluvia(14) < 1
+    assert modelo.peso_lluvia(21) == modelo.peso_lluvia(35) == 1.0
+    assert 0 < modelo.peso_lluvia(40) < 1 and modelo.peso_lluvia(46) == 0.0
+
+
+def test_lluvia_reciente_tras_sequia_no_da_el_maximo():
+    # Caso de nov-2026: mes seco y 70 mm hace 8-13 días. Antes salía ~88 para el níscalo.
+    v = serie(prec=0.0, suelo=0.12, et0=1.5)
+    for d in range(8, 14):
+        v[-d]["prec"] = 12.0
+    for x in v[-14:]:
+        x["suelo_0_7"] = x["suelo_7_28"] = 0.35
+    r = modelo.puntuar_todas(v, date(2026, 11, 22))["especies"]["lactarius_deliciosus"]
+    assert r["indice"] < 70 and r["limitante"] == "agua"
 
 
 def test_habitat():
